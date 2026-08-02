@@ -19,12 +19,13 @@ workspace (init)
     ↓
 indexing (ids, models, schema, migrations, database, lock, kernel)
     ↓
-services (doctor)
+services (doctor, index, status, search, navigation)
     ↓
 cli (main) — Typer + Rich, NOT imported by core
+mcp (server) — MCP over stdio, imports services only
 ```
 
-Core must not import Typer, Rich, or MCP packages. Indexing must not import CLI or MCP packages.
+Core must not import Typer, Rich, or MCP packages. Indexing must not import CLI or MCP packages. The `mcp` package is a top layer (sibling of `cli`): it imports `services` only, never `core` internals or `indexing` directly. The CLI may import `mcp` lazily to expose the `nexusos mcp` command.
 
 ## Code Style
 
@@ -43,7 +44,7 @@ Core must not import Typer, Rich, or MCP packages. Indexing must not import CLI 
 
 ## Current Phase
 
-**Phase 0 + Phase 1 complete; Phase 2 kernel + CLI core done.** The internal `indexing/` kernel is implemented (deterministic workspace-scoped IDs, SQLite schema v1 with FTS5, explicit migrations, transactional persistence, exclusive-writer lock, `IndexKernel` API) and the CLI exposes `index`, `status`, `search`, `browse`, `read`, `recent`, `links`, `context`, `lint`, `serve`, and `demo`. Search is SQLite FTS5 only (bm25-ranked, prefix matching, line-aware excerpts, read-only). MCP, embeddings, connectors, cloud, and source mutation are not yet implemented. Do not add placeholder commands that falsely claim these features work.
+**Phase 0 + Phase 1 complete; Phase 2 kernel + CLI core done.** The internal `indexing/` kernel is implemented (deterministic workspace-scoped IDs, SQLite schema v1 with FTS5, explicit migrations, transactional persistence, exclusive-writer lock, `IndexKernel` API) and the CLI exposes `index`, `status`, `search`, `browse`, `read`, `recent`, `links`, `context`, `lint`, `serve`, `mcp`, and `demo`. Search is SQLite FTS5 only (bm25-ranked, prefix matching, line-aware excerpts, read-only). An MCP server (`nexusos mcp` / `python -m nexusos.mcp`, stdio transport) exposes search, browse, read, recent, links, context, and index as MCP tools with strict schemas; it reuses the read-only services for retrieval and the index service for corpus indexing. Embeddings, connectors, cloud, source mutation, and non-stdio transports are not yet implemented. Do not add placeholder commands that falsely claim these features work.
 
 ## Build Verification
 

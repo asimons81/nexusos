@@ -64,3 +64,33 @@ def test_env_overrides_secret_vars_not_exposed(
     safe = config.to_safe_dict()
     assert "should-not-appear" not in str(safe)
     assert "secret_key" not in safe  # skipped by _env_override_map
+
+
+def test_mcp_section_loads(tmp_path: Path) -> None:
+    config_path = tmp_path / "nexusos.toml"
+    config_path.write_text('[mcp]\nenabled = false\ntransport = "stdio"\n')
+    config = load_config(config_path, apply_env=False)
+    assert config.mcp_enabled is False
+    assert config.mcp_transport == "stdio"
+
+
+def test_mcp_defaults() -> None:
+    from nexusos.core.models import DEFAULT_CONFIG
+
+    assert DEFAULT_CONFIG.mcp_enabled is True
+    assert DEFAULT_CONFIG.mcp_transport == "stdio"
+
+
+def test_mcp_unknown_key_rejected(tmp_path: Path) -> None:
+    config_path = tmp_path / "nexusos.toml"
+    config_path.write_text("[mcp]\nbogus = 1\n")
+    with pytest.raises(ConfigError):
+        load_config(config_path, apply_env=False)
+
+
+def test_mcp_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    config_path = tmp_path / "nexusos.toml"
+    config_path.write_text("")
+    monkeypatch.setenv("NEXUSOS_MCP_ENABLED", "false")
+    config = load_config(config_path, apply_env=True)
+    assert config.mcp_enabled is False

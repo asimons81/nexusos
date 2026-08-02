@@ -42,10 +42,10 @@
 ## v0.1.0-alpha.4 — Linting & MCP
 
 - `nexusos lint` with stale/broken detection
-- Read-only MCP server
-- MCP stdio transport
-- Loopback-only Streamable HTTP transport
-- Synthetic demo vault
+- [x] Read-only MCP server (`nexusos mcp`, stdio)
+- [x] MCP stdio transport with strict tool schemas (search, browse, read, recent, links, context, index)
+- [ ] Loopback-only Streamable HTTP transport
+- [x] Synthetic demo vault
 
 ## v0.1.0 — Stable Release
 

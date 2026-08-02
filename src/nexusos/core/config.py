@@ -25,6 +25,8 @@ _TOML_FIELD_MAP: dict[tuple[str, str], str] = {
     ("search", "snippet_length"): "search_snippet_length",
     ("server", "host"): "server_host",
     ("server", "port"): "server_port",
+    ("mcp", "enabled"): "mcp_enabled",
+    ("mcp", "transport"): "mcp_transport",
     ("lint", "max_file_size_bytes"): "lint_max_file_size_bytes",
     ("lint", "warn_empty_docs"): "lint_warn_empty_docs",
 }

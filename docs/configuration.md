@@ -26,10 +26,51 @@ snippet_length = 200
 host = "127.0.0.1"
 port = 8765
 
+[mcp]
+enabled = true
+transport = "stdio"
+
 [lint]
 max_file_size_bytes = 5_242_880
 warn_empty_docs = true
 ```
+
+## MCP Server
+
+The MCP server (`nexusos mcp` / `python -m nexusos.mcp --workspace PATH`)
+speaks the Model Context Protocol over stdio. MCP clients launch it as a
+subprocess and connect via JSON-RPC; nothing is printed to stdout except
+protocol frames.
+
+Configure it under `[mcp]`:
+
+```toml
+[mcp]
+enabled = true          # set false to refuse MCP connections for this workspace
+transport = "stdio"     # stdio is the only supported transport today
+```
+
+When `enabled = false`, the server refuses to start and exits non-zero, so
+an MCP client cannot attach to a workspace that opted out.
+
+### Client connection example
+
+Point any MCP client at the `nexusos mcp` command, e.g. in an MCP client
+config that supports stdio servers:
+
+```json
+{
+  "mcpServers": {
+    "nexusos": {
+      "command": "nexusos",
+      "args": ["mcp", "--workspace", "/path/to/workspace"]
+    }
+  }
+}
+```
+
+Equivalently, `python -m nexusos.mcp --workspace /path/to/workspace` runs
+the same server from a source checkout.
 
 ## Precedence
 
@@ -61,4 +102,4 @@ nexusos config show --json           # JSON output
 
 ## Not Yet Implemented
 
-The `[server]` and `[lint]` configuration keys exist in the model but are inert until the server and linting phases complete. The indexing and search keys are live: `index_path` (default `.nexusos/index.sqlite3`) is used by the internal indexing kernel, which validates the path stays inside the workspace; `search.max_results` and `search.snippet_length` drive the `nexusos search` command (`--limit` overrides `max_results` on the CLI).
+The `[server]` and `[lint]` configuration keys exist in the model but are inert until the server and linting phases complete. The indexing and search keys are live: `index_path` (default `.nexusos/index.sqlite3`) is used by the internal indexing kernel, which validates the path stays inside the workspace; `search.max_results` and `search.snippet_length` drive the `nexusos search` command (`--limit` overrides `max_results` on the CLI). The `[mcp]` keys are live: `enabled` gates the `nexusos mcp` server and `transport` selects the transport (only `stdio` today).

@@ -77,6 +77,10 @@ class NexusOSConfig(BaseModel):
     server_host: str = "127.0.0.1"
     server_port: int = 8765
 
+    # MCP server
+    mcp_enabled: bool = True
+    mcp_transport: str = "stdio"  # stdio (only transport supported today)
+
     # Lint
     lint_max_file_size_bytes: int = 5_242_880  # 5 MiB
     lint_warn_empty_docs: bool = True

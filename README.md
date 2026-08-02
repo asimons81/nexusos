@@ -6,7 +6,13 @@ NexusOS is an open-source, local-first knowledge operating system for AI agents.
 
 ## Status: Pre-release
 
-Version **0.1.0-alpha.1** implements the safety shell and workspace foundation. The internal indexing kernel for **0.1.0-alpha.2** (deterministic IDs, SQLite schema v1 with FTS5 preparation rows, transactional persistence, exclusive-writer lock) is implemented, but file discovery/parsing, the `index`/`status` commands, search, MCP server, linting, and embeddings are not yet available.
+Version **0.1.0-alpha.1** implements the safety shell and workspace
+foundation; the **alpha.2** work adds the indexing kernel (deterministic
+IDs, SQLite schema v1 with FTS5, transactional persistence,
+exclusive-writer lock) plus `index`/`status`. Search and content navigation
+(`search`, `browse`, `read`, `recent`, `links`, `context`) are implemented
+on top of the index, and an MCP server (`nexusos mcp`) exposes them to MCP
+clients over stdio. Embeddings and vector search are not yet available.
 
 ## Installation
 
@@ -31,6 +37,13 @@ nexusos config show --effective  # Resolved configuration
 nexusos config show --json   # JSON output
 nexusos index                # Index the workspace (incremental; --full rebuilds)
 nexusos status               # Show index status and staleness
+nexusos search TERM          # Full-text search (prefix matching, ranked)
+nexusos browse               # List indexed documents
+nexusos read ITEM            # Read a document by id/path/name
+nexusos recent               # Recently modified documents
+nexusos links ITEM           # Wiki-link graph for a document
+nexusos context ITEM         # Headings, siblings, linked documents
+nexusos mcp                  # Serve the workspace over MCP (stdio)
 ```
 
 ## Developer Tooling
@@ -48,8 +61,7 @@ nexusos demo --remove        # Delete the demo vault when done
 
 `lint`, `serve`, and `demo` are developer commands for this repository. They
 operate on the NexusOS kernel source and on synthetic demo data — they are not
-the workspace vault linter or the MCP server, which remain future product
-features.
+the workspace vault linter, which remains a future product feature.
 
 ## Workspace Structure
 

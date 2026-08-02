@@ -446,6 +446,47 @@ def serve(
 
 
 @app.command()
+def mcp(
+    workspace: Path | None = typer.Option(None, "--workspace", "-w", help="Path to workspace root"),
+) -> None:
+    """Serve the workspace over the Model Context Protocol (stdio).
+
+    Speaks JSON-RPC over stdin/stdout for MCP clients. Launch as a
+    subprocess (e.g. ``hermes mcp add`` or an MCP client config); do not run
+    interactively. Nothing is printed to stdout before the protocol starts.
+    """
+    ws_root = _resolve_workspace(workspace)
+
+    try:
+        config = load_config_effective(ws_root)
+    except NexusOSError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=exc.exit_code)
+
+    if not config.mcp_enabled:
+        typer.echo(
+            "Error: MCP server is disabled for this workspace ([mcp] enabled = false).",
+            err=True,
+        )
+        raise typer.Exit(code=3)
+    if config.mcp_transport != "stdio":
+        typer.echo(
+            f"Error: unsupported MCP transport {config.mcp_transport!r}; "
+            "only 'stdio' is supported today.",
+            err=True,
+        )
+        raise typer.Exit(code=3)
+
+    # Lazy import: keep the mcp SDK out of the hot path for other commands.
+    from nexusos.mcp.server import build_server
+
+    server = build_server(ws_root, config=config)
+    # server.run() installs its own anyio event loop, so this must be called
+    # from a fresh sync context (not inside an existing asyncio loop).
+    server.run(transport="stdio")
+
+
+@app.command()
 def demo(
     path: Path | None = typer.Option(None, "--path", help="Where to create the demo vault"),
     remove: bool = typer.Option(False, "--remove", help="Delete the demo vault when done"),

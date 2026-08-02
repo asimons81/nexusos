@@ -23,10 +23,12 @@
 - Content-navigation commands (`nexusos browse`, `read`, `recent`, `links`, `context`) backed by a shared read-only service layer, with `RecentDocument`/`IncomingLink` models and navigation error types
 - `nexusos search <term>` — SQLite FTS5 full-text search over the indexed corpus: bm25-ranked results with source file path, line range, heading path, and highlight-marked excerpts; prefix matching and case-insensitive; safe query construction (`build_fts_query`) so FTS5 operators are treated as literal text; honors `[search] max_results` / `snippet_length` config with `--limit` override; `--json` emits the full report; read-only (never creates the index database)
 - 46 unit + integration tests for search and content navigation (matched terms, no-match, multiple ranked results, prefix/case handling, limits, JSON output, exit codes, read-only invariant)
+- MCP server (`nexusos mcp` / `python -m nexusos.mcp --workspace PATH`): Model Context Protocol over stdio exposing the workspace index as seven tools — `search`, `browse`, `read`, `recent`, `links`, `context`, and `index` (the indexer reuses the existing incremental index pass). Every tool advertises a strict schema (`additionalProperties: false`), returns JSON in both text and structured content, and surfaces service errors as MCP tool errors. `[mcp]` config section (`enabled`, `transport` — stdio only) with a client-connection example
+- 31 unit + integration tests for the MCP server (tool registration, strict schemas, `[mcp]` config, real-subprocess stdio handshake, tool invocation returning valid JSON, missing-document errors, extra-argument rejection, indexing completion over a sample corpus, dry-run read-only guarantee)
 
 ### Not yet implemented
 
-- MCP server (stdio and HTTP transports)
+- Streamable HTTP / SSE transports for MCP (stdio only today)
 - Vault linting and staleness detection (the `lint` command runs the project's own dev tooling only)
 - Embeddings or vector database
 - Source mutation through MCP
