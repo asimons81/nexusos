@@ -12,10 +12,12 @@ from nexusos.core.errors import (
     DeniedPathError,
     NestedWorkspaceError,
     NonEmptyDirectoryError,
+    PathSafetyError,
     RootOrHomeError,
     WorkspaceAlreadyExistsError,
 )
 from nexusos.workspace.init import (
+    _atomic_write,
     _compute_plan,
     _random_id,
     build_workspace_identity,
@@ -194,3 +196,102 @@ def test_workspace_identity_has_correct_schema(
     assert data["schema_version"] == 1
     assert data["workspace_id"].startswith("nxo_ws_")
     assert data["nexusos_version"] == __version__
+
+
+# --- F-01 regression: predictable temp-file symlink overwrite ---------------
+
+
+def test_atomic_write_does_not_follow_preseeded_tmp_symlink(
+    tmp_path: Path,
+) -> None:
+    """F-01: a symlink at the old deterministic tmp path must not redirect writes.
+
+    Regression for security probe finding F-01: _atomic_write used to write
+    to ``path.with_suffix(path.suffix + \".tmp\")`` with write_text(), which
+    follows a pre-staged symlink and overwrites its target with workspace
+    identity JSON. The tmp path must now be unpredictable/O_EXCL so the
+    symlink is never followed.
+    """
+    ws = tmp_path / "ws"
+    victim = tmp_path / "victim.txt"
+    victim.write_text("VICTIM ORIGINAL DATA", encoding="utf-8")
+
+    ws.mkdir()
+    (ws / ".nexusos").mkdir()
+    # Attacker pre-stages a symlink at the OLD deterministic tmp path.
+    old_tmp = ws / ".nexusos" / "workspace.json.tmp"
+    old_tmp.symlink_to(victim)
+
+    target = ws / ".nexusos" / "workspace.json"
+    _atomic_write(target, '{"schema_version":1}')
+
+    # The victim file must be untouched.
+    assert victim.read_text(encoding="utf-8") == "VICTIM ORIGINAL DATA"
+    # The identity file was written normally.
+    assert target.read_text(encoding="utf-8") == '{"schema_version":1}'
+
+
+def test_atomic_write_leaves_no_temp_files(tmp_path: Path) -> None:
+    """The atomic write must not leave .tmp residue after success."""
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    target = ws / "identity.json"
+    _atomic_write(target, '{"schema_version":1}')
+    leftovers = [p.name for p in ws.iterdir() if p.name != "identity.json"]
+    assert leftovers == []
+
+
+def test_init_adopt_refuses_preseeded_nexusos(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """F-01: init --adopt must refuse a workspace with pre-existing .nexusos content.
+
+    Full reproduction from the security probe: a symlink pre-staged at
+    ``.nexusos/workspace.json.tmp`` pointing at a victim file. The victim must
+    never be overwritten; adopt fails cleanly.
+    """
+    monkeypatch.delenv("NEXUSOS_DENY_PATHS", raising=False)
+    ws = tmp_path / "ws"
+    victim = tmp_path / "victim.txt"
+    victim.write_text("VICTIM ORIGINAL DATA", encoding="utf-8")
+
+    ws.mkdir()
+    (ws / ".nexusos").mkdir()
+    (ws / ".nexusos" / "workspace.json.tmp").symlink_to(victim)
+
+    with pytest.raises(PathSafetyError):
+        init_workspace(ws, template="blank", adopt=True)
+
+    assert victim.read_text(encoding="utf-8") == "VICTIM ORIGINAL DATA"
+    assert not (ws / ".nexusos" / "workspace.json").exists()
+
+
+def test_init_adopt_refuses_nexusos_regular_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Adopting when .nexusos/ is a regular file fails cleanly (no raw FileExistsError)."""
+    monkeypatch.delenv("NEXUSOS_DENY_PATHS", raising=False)
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    (ws / ".nexusos").write_text("not a directory", encoding="utf-8")
+
+    with pytest.raises(PathSafetyError):
+        init_workspace(ws, template="blank", adopt=True)
+
+    assert not (ws / ".nexusos" / "workspace.json").exists()
+
+
+def test_init_adopt_allows_empty_nexusos_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Adopting a directory whose .nexusos/ is present but empty still works."""
+    monkeypatch.delenv("NEXUSOS_DENY_PATHS", raising=False)
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    (ws / ".nexusos").mkdir()
+    (ws / "existing.txt").write_text("data")
+
+    init_workspace(ws, template="blank", adopt=True)
+
+    assert (ws / ".nexusos" / "workspace.json").is_file()
+    assert (ws / "existing.txt").read_text() == "data"

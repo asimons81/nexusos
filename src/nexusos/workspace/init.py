@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
+import os
 import random
 import string
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
 from nexusos import __version__
 from nexusos.core.errors import (
     NonEmptyDirectoryError,
+    PathSafetyError,
     TemplateError,
     WorkspaceAlreadyExistsError,
 )
@@ -194,11 +198,27 @@ def _iso_now() -> str:
 
 
 def _atomic_write(path: Path, content: str) -> None:
-    """Write a file atomically using a temp file + rename."""
+    """Write a file atomically using a private temp file + rename.
+
+    The temp file is created with O_EXCL semantics in the same directory as
+    the target (so the rename is atomic) using a random name, so a pre-staged
+    symlink at a predictable temp path can never be followed (F-01). The
+    final ``os.replace`` swaps the directory entry itself and never follows a
+    symlink at the target path.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    tmp_path.write_text(content, encoding="utf-8")
-    tmp_path.replace(path)
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(content)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp_name, path)
+    except BaseException:
+        # Best-effort cleanup of the private temp file.
+        with contextlib.suppress(OSError):
+            os.unlink(tmp_name)
+        raise
 
 
 def _write_if_missing(path: Path, content: str) -> bool:
@@ -243,6 +263,32 @@ def _compute_plan(
     ws_identity_file = target / WSPACE_FILE
     if ws_identity_file.exists():
         raise WorkspaceAlreadyExistsError(f"Workspace already exists at {target}", exit_code=2)
+
+    # F-01 guard: refuse to adopt a workspace whose .nexusos/ directory is a
+    # symlink or already contains pre-existing entries (e.g. a staged
+    # workspace.json.tmp symlink). Writing into such a directory could
+    # redirect the identity write to an arbitrary file.
+    if adopt:
+        nexusos_dir = target / ".nexusos"
+        if nexusos_dir.is_symlink():
+            raise PathSafetyError(
+                f"Refusing to adopt {target}: .nexusos/ is a symlink",
+                exit_code=2,
+            )
+        if nexusos_dir.exists() and not nexusos_dir.is_dir():
+            raise PathSafetyError(
+                f"Refusing to adopt {target}: .nexusos/ is not a directory",
+                exit_code=2,
+            )
+        if nexusos_dir.is_dir():
+            preexisting = list(nexusos_dir.iterdir())
+            if preexisting:
+                raise PathSafetyError(
+                    f"Refusing to adopt {target}: .nexusos/ already contains "
+                    f"{len(preexisting)} item(s); remove it or initialize a fresh "
+                    "workspace",
+                    exit_code=2,
+                )
 
     # Non-empty check
     if target.exists() and target.is_dir():
