@@ -64,8 +64,9 @@ def search_workspace(
             exit_code=2,
         )
     try:
-        # create_parent=False keeps search read-only.
-        kernel.open(create_parent=False)
+        # create_parent=False keeps search read-only; mode=ro URI means a
+        # read-only .nexusos directory does not break search (WAL is skipped).
+        kernel.open(create_parent=False, read_only=True)
     except Exception as exc:
         if isinstance(exc, IndexingError):
             raise

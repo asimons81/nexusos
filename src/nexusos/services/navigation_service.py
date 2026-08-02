@@ -57,7 +57,7 @@ def _open_readonly(workspace_root: Path) -> IndexKernel:
             exit_code=2,
         )
     try:
-        kernel.open(create_parent=False)
+        kernel.open(create_parent=False, read_only=True)
     except IndexingError:
         kernel.close()
         raise

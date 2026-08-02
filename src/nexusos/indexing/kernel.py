@@ -13,7 +13,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator  # noqa: TC003
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from nexusos import __version__
 from nexusos.core.errors import (
@@ -125,12 +125,16 @@ class IndexKernel:
 
     # -- lifecycle ------------------------------------------------------------
 
-    def open(self, *, create_parent: bool = False) -> None:
+    def open(self, *, create_parent: bool = False, read_only: bool = False) -> None:
         """Open the database, migrate it, and bind it to the workspace identity.
 
         ``create_parent=True`` is required when the state directory does not
         exist yet; it should only be passed when indexing is explicitly invoked
         (never by ``doctor`` or ``status``).
+
+        ``read_only=True`` opens the database with a ``mode=ro`` URI so
+        read-only commands (search, browse, status) keep working even when the
+        ``.nexusos`` directory is not writable.
         """
         if self._identity is None:
             identity = load_workspace_identity(self._workspace_root)
@@ -140,7 +144,7 @@ class IndexKernel:
                     exit_code=2,
                 )
             self._identity = identity
-        self._db.open(create_parent=create_parent)
+        self._db.open(create_parent=create_parent, read_only=read_only)
         try:
             existing = self._db.get_meta("workspace_id")
             if existing is not None and existing != self._identity.workspace_id:
@@ -320,6 +324,7 @@ class IndexKernel:
         files_deleted: int = 0,
         documents_failed: int = 0,
         warning_count: int = 0,
+        warnings: list[dict[str, Any]] | None = None,
         error_count: int = 0,
     ) -> IndexRunRecord:
         """Complete an index run, persist counters, and update meta keys."""
@@ -337,6 +342,7 @@ class IndexKernel:
                 files_deleted=files_deleted,
                 documents_failed=documents_failed,
                 warning_count=warning_count,
+                warnings=warnings,
                 error_count=error_count,
             )
             if success:

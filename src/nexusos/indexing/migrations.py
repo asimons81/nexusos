@@ -9,7 +9,11 @@ from __future__ import annotations
 import sqlite3  # noqa: TC003
 
 from nexusos.core.errors import DatabaseSchemaError
-from nexusos.indexing.schema import SCHEMA_STATEMENTS, SCHEMA_VERSION
+from nexusos.indexing.schema import (
+    _MIGRATION_V2_WARNINGS,
+    SCHEMA_STATEMENTS,
+    SCHEMA_VERSION,
+)
 
 
 def current_schema_version(conn: sqlite3.Connection) -> int:
@@ -39,14 +43,24 @@ def migrate(conn: sqlite3.Connection, *, target: int = SCHEMA_VERSION) -> None:
 
 def _apply(conn: sqlite3.Connection, version: int) -> None:
     """Apply the migration that produces schema ``version``, transactionally."""
-    if version != 1:
+    if version == 1:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            for statement in SCHEMA_STATEMENTS:
+                conn.execute(statement)
+            conn.execute("PRAGMA user_version = 1")
+            conn.execute("COMMIT")
+        except BaseException:
+            conn.execute("ROLLBACK")
+            raise
+    elif version == 2:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            conn.execute(_MIGRATION_V2_WARNINGS)
+            conn.execute("PRAGMA user_version = 2")
+            conn.execute("COMMIT")
+        except BaseException:
+            conn.execute("ROLLBACK")
+            raise
+    else:
         raise DatabaseSchemaError(f"no migration path to schema version {version}")
-    conn.execute("BEGIN IMMEDIATE")
-    try:
-        for statement in SCHEMA_STATEMENTS:
-            conn.execute(statement)
-        conn.execute(f"PRAGMA user_version = {version}")
-        conn.execute("COMMIT")
-    except BaseException:
-        conn.execute("ROLLBACK")
-        raise

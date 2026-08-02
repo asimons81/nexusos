@@ -10,6 +10,7 @@ verbatim and never executed or interpreted.
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -257,6 +258,9 @@ class IndexRunRecord(BaseModel):
     files_deleted: int = 0
     documents_failed: int = 0
     warning_count: int = 0
+    #: Discovery warning details (type, path, message). Persisted as JSON in
+    #: the ``index_runs.warnings_json`` column and surfaced by the CLI.
+    warnings: list[dict[str, Any]] = Field(default_factory=list)
     error_count: int = 0
     success: bool = False
     error_summary: str | None = None

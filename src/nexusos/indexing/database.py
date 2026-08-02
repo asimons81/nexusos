@@ -20,13 +20,15 @@ from typing import Any
 from nexusos.core.errors import (
     CorruptDatabaseError,
     DatabaseError,
+    DatabasePermissionError,
+    DatabaseSchemaError,
     IndexEntryExistsError,
     IndexEntryNotFoundError,
     IndexingError,
     IndexTransactionError,
 )
 from nexusos.indexing.ids import run_id
-from nexusos.indexing.migrations import migrate
+from nexusos.indexing.migrations import current_schema_version, migrate
 from nexusos.indexing.models import (
     DocumentCandidate,
     DocumentSignature,
@@ -40,11 +42,27 @@ from nexusos.indexing.models import (
     RecentDocument,
     SearchHit,
 )
+from nexusos.indexing.schema import SCHEMA_VERSION
 
 
 def iso_now() -> str:
     """Return the current UTC time as an ISO-8601 string."""
     return datetime.now(UTC).isoformat()
+
+
+def _is_readonly_error(exc: BaseException) -> bool:
+    """Return True when a sqlite3 error is a read-only/permission failure.
+
+    ``attempt to write a readonly database`` surfaces as
+    :class:`sqlite3.OperationalError` with an extended error code whose low
+    byte is ``SQLITE_READONLY`` (8). A permission failure must never be
+    mislabeled as database corruption.
+    """
+    code = getattr(exc, "sqlite_errorcode", None)
+    if isinstance(code, int) and code & 0xFF == sqlite3.SQLITE_READONLY:
+        return True
+    message = str(exc).lower()
+    return "readonly" in message or "read-only" in message
 
 
 def _as_str(row: Any, key: str) -> str:
@@ -58,6 +76,19 @@ def _as_int(row: Any, key: str) -> int:
 def _as_optional_str(row: Any, key: str) -> str | None:
     value = row[key]
     return None if value is None else str(value)
+
+
+def _parse_warnings_json(raw: str | None) -> list[dict[str, Any]]:
+    """Parse a persisted warnings_json column, degrading to [] when invalid."""
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [w for w in parsed if isinstance(w, dict)]
 
 
 class IndexDatabase:
@@ -80,12 +111,18 @@ class IndexDatabase:
     def in_transaction(self) -> bool:
         return self._tx_depth > 0
 
-    def open(self, *, create_parent: bool = False) -> None:
+    def open(self, *, create_parent: bool = False, read_only: bool = False) -> None:
         """Open (and if needed create) the database and migrate it.
 
         ``create_parent`` must be True when the caller explicitly invoked an
         index operation; otherwise a missing state directory is an error so
         read-only tooling can never create the index database.
+
+        ``read_only`` opens the database without write access. Read-only
+        commands (search, browse, status) use this so a read-only
+        ``.nexusos`` directory does not break them — WAL mode requires write
+        access even for plain reads, so a writable open of a read-only
+        directory would fail.
         """
         if self._conn is not None:
             raise DatabaseError("index database is already open")
@@ -96,32 +133,75 @@ class IndexDatabase:
                     "pass create_parent=True when indexing is explicitly invoked"
                 )
             self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            conn = sqlite3.connect(str(self._db_path), timeout=5.0)
-        except sqlite3.Error as exc:
-            raise DatabaseError(f"cannot open index database {self._db_path}: {exc}")
-        conn.row_factory = sqlite3.Row
-        conn.isolation_level = None  # explicit transaction control
-        try:
-            conn.execute("PRAGMA foreign_keys = ON")
-            conn.execute("PRAGMA busy_timeout = 5000")
-            conn.execute("PRAGMA journal_mode = WAL")
-            conn.execute("PRAGMA synchronous = NORMAL")
-        except sqlite3.DatabaseError as exc:
-            conn.close()
-            raise CorruptDatabaseError(f"index database is corrupt or invalid: {exc}")
-        except sqlite3.OperationalError as exc:
-            conn.close()
-            raise DatabaseError(f"cannot configure index database: {exc}")
-        try:
-            migrate(conn)
-        except sqlite3.DatabaseError as exc:
-            conn.close()
-            raise CorruptDatabaseError(f"index database is corrupt or invalid: {exc}")
-        except sqlite3.OperationalError as exc:
-            conn.close()
-            raise DatabaseError(f"cannot initialize index schema: {exc}")
+        conn = self._connect(read_only=read_only)
         self._conn = conn
+
+    def _connect(self, *, read_only: bool) -> sqlite3.Connection:
+        """Connect, configure, and migrate the database connection.
+
+        For read-only opens, prefer a plain ``mode=ro`` connection: on a
+        writable directory SQLite can still create the WAL ``-shm`` file, so
+        concurrent reads of a live index stay correct. On a read-only
+        directory that open fails with SQLITE_READONLY_CANTINIT the first
+        time the file is touched (WAL shared memory cannot be created), so
+        fall back to immutable mode, which reads the (fully checkpointed)
+        main database file directly without needing ``-shm``.
+        """
+        attempts: list[str | None]
+        if read_only:
+            uri_base = self._db_path.resolve().as_uri()
+            attempts = [
+                f"{uri_base}?mode=ro",
+                f"{uri_base}?mode=ro&immutable=1",
+            ]
+        else:
+            attempts = [None]
+        last_exc: sqlite3.Error | None = None
+        for uri in attempts:
+            conn: sqlite3.Connection | None = None
+            try:
+                conn = sqlite3.connect(uri or str(self._db_path), uri=uri is not None, timeout=5.0)
+                conn.row_factory = sqlite3.Row
+                conn.isolation_level = None  # explicit transaction control
+                conn.execute("PRAGMA foreign_keys = ON")
+                conn.execute("PRAGMA busy_timeout = 5000")
+                if read_only:
+                    # Read-only commands must never migrate: migration writes
+                    # the schema, which a mode=ro connection cannot do. If the
+                    # database is behind the current schema, report a clear
+                    # upgrade message instead of a misleading permission error.
+                    current = current_schema_version(conn)
+                    if current != SCHEMA_VERSION:
+                        raise DatabaseSchemaError(
+                            f"index database schema version {current} requires "
+                            f"upgrade to version {SCHEMA_VERSION}; run "
+                            "`nexusos index` to migrate it"
+                        )
+                else:
+                    conn.execute("PRAGMA journal_mode = WAL")
+                    conn.execute("PRAGMA synchronous = NORMAL")
+                    migrate(conn)
+                return conn
+            except sqlite3.Error as exc:
+                last_exc = exc
+                if conn is not None:
+                    with suppress(Exception):
+                        conn.close()
+            except BaseException:
+                # Schema/validation errors (e.g. DatabaseSchemaError) are not
+                # retryable; close and propagate.
+                if conn is not None:
+                    with suppress(Exception):
+                        conn.close()
+                raise
+        assert last_exc is not None
+        if _is_readonly_error(last_exc):
+            raise DatabasePermissionError(
+                f"index database is not writable (permission denied): {last_exc}"
+            )
+        if isinstance(last_exc, sqlite3.DatabaseError):
+            raise CorruptDatabaseError(f"index database is corrupt or invalid: {last_exc}")
+        raise DatabaseError(f"cannot open index database {self._db_path}: {last_exc}")
 
     def close(self) -> None:
         """Close the database, rolling back any open transaction."""
@@ -150,6 +230,10 @@ class IndexDatabase:
             conn.execute("BEGIN IMMEDIATE")
         except sqlite3.Error as exc:
             self._tx_depth -= 1
+            if _is_readonly_error(exc):
+                raise DatabasePermissionError(
+                    f"index database is not writable (permission denied): {exc}"
+                )
             raise IndexTransactionError(f"cannot begin index transaction: {exc}")
         try:
             yield
@@ -163,6 +247,10 @@ class IndexDatabase:
                 conn.execute("COMMIT")
             except sqlite3.Error as exc:
                 self._tx_depth -= 1
+                if _is_readonly_error(exc):
+                    raise DatabasePermissionError(
+                        f"index database is not writable (permission denied): {exc}"
+                    )
                 raise IndexTransactionError(f"cannot commit index transaction: {exc}")
             self._tx_depth -= 1
 
@@ -376,9 +464,17 @@ class IndexDatabase:
             )
             rows = list(cursor.fetchall())
         except sqlite3.OperationalError as exc:
+            if _is_readonly_error(exc):
+                raise DatabasePermissionError(
+                    f"index database is not writable (permission denied): {exc}"
+                )
             # A malformed MATCH expression is a query error, not corruption.
             raise IndexingError(f"invalid search query: {exc}", exit_code=2)
         except sqlite3.DatabaseError as exc:
+            if _is_readonly_error(exc):
+                raise DatabasePermissionError(
+                    f"index database is not writable (permission denied): {exc}"
+                )
             raise CorruptDatabaseError(f"index database error: {exc}")
         return [
             SearchHit(
@@ -418,6 +514,7 @@ class IndexDatabase:
         files_deleted: int = 0,
         documents_failed: int = 0,
         warning_count: int = 0,
+        warnings: list[dict[str, Any]] | None = None,
         error_count: int = 0,
     ) -> IndexRunRecord:
         """Mark a run complete, persist the counters, and return the record."""
@@ -434,6 +531,7 @@ class IndexDatabase:
                 "files_deleted": files_deleted,
                 "documents_failed": documents_failed,
                 "warning_count": warning_count,
+                "warnings": list(warnings or []),
                 "error_count": error_count,
             }
         )
@@ -460,6 +558,7 @@ class IndexDatabase:
             files_deleted=_as_int(row, "files_deleted"),
             documents_failed=_as_int(row, "documents_failed"),
             warning_count=_as_int(row, "warning_count"),
+            warnings=_parse_warnings_json(_as_optional_str(row, "warnings_json")),
             error_count=_as_int(row, "error_count"),
             success=bool(_as_int(row, "success")),
             error_summary=_as_optional_str(row, "error_summary"),
@@ -770,8 +869,8 @@ class IndexDatabase:
             "INSERT INTO index_runs ("
             "run_id, started_at, completed_at, mode, files_seen, files_added, "
             "files_updated, files_unchanged, files_deleted, documents_failed, "
-            "warning_count, error_count, success, error_summary"
-            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "warning_count, warnings_json, error_count, success, error_summary"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(run_id) DO UPDATE SET "
             "started_at = excluded.started_at, completed_at = excluded.completed_at, "
             "mode = excluded.mode, files_seen = excluded.files_seen, "
@@ -780,6 +879,7 @@ class IndexDatabase:
             "files_deleted = excluded.files_deleted, "
             "documents_failed = excluded.documents_failed, "
             "warning_count = excluded.warning_count, "
+            "warnings_json = excluded.warnings_json, "
             "error_count = excluded.error_count, "
             "success = excluded.success, error_summary = excluded.error_summary",
             (
@@ -794,6 +894,7 @@ class IndexDatabase:
                 run.files_deleted,
                 run.documents_failed,
                 run.warning_count,
+                json.dumps(run.warnings, ensure_ascii=True),
                 run.error_count,
                 1 if run.success else 0,
                 run.error_summary,
@@ -810,6 +911,10 @@ class IndexDatabase:
         try:
             conn.execute(sql, params)
         except sqlite3.DatabaseError as exc:
+            if _is_readonly_error(exc):
+                raise DatabasePermissionError(
+                    f"index database is not writable (permission denied): {exc}"
+                )
             raise CorruptDatabaseError(f"index database error: {exc}")
 
     def _fetchone(self, sql: str, params: tuple[Any, ...] = ()) -> sqlite3.Row | None:
@@ -818,6 +923,10 @@ class IndexDatabase:
             row: sqlite3.Row | None = conn.execute(sql, params).fetchone()
             return row
         except sqlite3.DatabaseError as exc:
+            if _is_readonly_error(exc):
+                raise DatabasePermissionError(
+                    f"index database is not writable (permission denied): {exc}"
+                )
             raise CorruptDatabaseError(f"index database error: {exc}")
 
     def _fetchall(self, sql: str, params: tuple[Any, ...] = ()) -> list[sqlite3.Row]:
@@ -825,4 +934,8 @@ class IndexDatabase:
         try:
             return list(conn.execute(sql, params).fetchall())
         except sqlite3.DatabaseError as exc:
+            if _is_readonly_error(exc):
+                raise DatabasePermissionError(
+                    f"index database is not writable (permission denied): {exc}"
+                )
             raise CorruptDatabaseError(f"index database error: {exc}")

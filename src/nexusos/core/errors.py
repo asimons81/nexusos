@@ -85,6 +85,10 @@ class CorruptDatabaseError(DatabaseError):
     """The index database is corrupt or not a valid SQLite database."""
 
 
+class DatabasePermissionError(DatabaseError):
+    """The index database or its directory is not writable (permissions)."""
+
+
 class IndexTransactionError(IndexingError):
     """Index transaction could not be started, committed, or rolled back."""
 

@@ -88,7 +88,7 @@ def get_status(workspace_root: Path) -> dict[str, Any]:
     # Open database read-only (no create_parent!)
     kernel = IndexKernel(workspace_root)
     try:
-        kernel.open(create_parent=False)
+        kernel.open(create_parent=False, read_only=True)
     except Exception as exc:
         return {
             "status": "error",

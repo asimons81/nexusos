@@ -243,7 +243,9 @@ def test_read_unknown_item_raises(workspace: Path) -> None:
 
 def test_read_ambiguous_item_raises(workspace: Path) -> None:
     # journal/note.md and wiki/target.md do not share a stem; add a clash.
-    kernel = nav._open_readonly(workspace)
+    # Use a writable kernel for the write — _open_readonly is read-only.
+    kernel = IndexKernel(workspace)
+    kernel.open(create_parent=True)
     try:
         ws_id = kernel.workspace_id
         kernel.add_document(_make_doc(ws_id, "raw/note.md", title="Raw Note", collection="raw"))

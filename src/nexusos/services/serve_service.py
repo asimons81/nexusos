@@ -215,7 +215,7 @@ class _NexusOSHandler(BaseHTTPRequestHandler):
             }
         kernel = IndexKernel(ws)
         try:
-            kernel.open(create_parent=False)
+            kernel.open(create_parent=False, read_only=True)
         except Exception as exc:  # serve errors are user-facing
             return {"error": "cannot open index", "detail": str(exc)}
         self._kernel = kernel

@@ -6,7 +6,7 @@ import os
 import sys
 import tomllib
 from pathlib import Path  # noqa: TC003
-from typing import Any
+from typing import Any, get_origin
 
 from nexusos.core.errors import ConfigError
 from nexusos.core.models import DEFAULT_CONFIG, NexusOSConfig
@@ -127,12 +127,50 @@ def _flatten_toml(toml_data: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _coerce_env_value(config_key: str, value: str, *, env_name: str) -> Any:
+    """Validate/coerce an env override against the model field's type.
+
+    Raises :class:`ConfigError` naming the variable when the value cannot be
+    interpreted as the field's declared type, so a typo like
+    ``NEXUSOS_SEARCH_MAX_RESULTS=abc`` fails at config load with a clear
+    message instead of surfacing later as a confusing runtime DB error.
+    """
+    annotation = NexusOSConfig.model_fields[config_key].annotation
+    if annotation is int:
+        try:
+            return int(value)
+        except ValueError:
+            raise ConfigError(
+                f"invalid value for {env_name}: expected an integer, got {value!r}",
+                exit_code=2,
+            )
+    if annotation is bool:
+        lowered = value.strip().lower()
+        if lowered in ("true", "1"):
+            return True
+        if lowered in ("false", "0"):
+            return False
+        raise ConfigError(
+            f"invalid value for {env_name}: expected 'true' or 'false', got {value!r}",
+            exit_code=2,
+        )
+    origin = get_origin(annotation)
+    if origin in (list, dict):
+        raise ConfigError(
+            f"{env_name} cannot be set via environment variable "
+            "(list/dict field); configure it in nexusos.toml instead",
+            exit_code=2,
+        )
+    return value
+
+
 def _env_override_map() -> dict[str, Any]:
     """Extract NEXUSOS_* env vars into a typed override dict.
 
     Unknown ``NEXUSOS_*`` configuration names produce a warning to stderr
     (the overrides are still applied — the warning is advisory so deployments
-    do not break on a single stray env var).
+    do not break on a single stray env var). Known variables are validated
+    against their model field type at load time.
     """
     overrides: dict[str, Any] = {}
     for key, value in os.environ.items():
@@ -147,12 +185,7 @@ def _env_override_map() -> dict[str, Any]:
                 file=sys.stderr,
             )
             continue
-        if value.isdigit():
-            overrides[config_key] = int(value)
-        elif value.lower() in ("true", "false"):
-            overrides[config_key] = value.lower() == "true"
-        else:
-            overrides[config_key] = value
+        overrides[config_key] = _coerce_env_value(config_key, value, env_name=key)
     return overrides
 
 

@@ -77,6 +77,8 @@ def run_index(
             started_at=_iso_now(),
             mode=f"{mode}-dry",
             files_seen=len(discovery.files),
+            warning_count=len(discovery.warnings),
+            warnings=discovery.warnings,
             success=True,
         )
 
@@ -308,6 +310,7 @@ def _index_pass(
         files_deleted=len(deleted_paths),
         documents_failed=failed,
         warning_count=len(discovery.warnings),
+        warnings=discovery.warnings,
         error_count=failed,
     )
     return completed

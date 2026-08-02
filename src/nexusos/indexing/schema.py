@@ -10,7 +10,7 @@ links, and index-run records.
 from __future__ import annotations
 
 #: Current index schema version, stored in ``PRAGMA user_version``.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _META = """
 CREATE TABLE IF NOT EXISTS meta (
@@ -113,6 +113,11 @@ CREATE TABLE IF NOT EXISTS index_runs (
     error_summary TEXT
 )
 """
+
+#: v2 migration: persist discovery warning details alongside the run record.
+_MIGRATION_V2_WARNINGS = (
+    "ALTER TABLE index_runs ADD COLUMN warnings_json TEXT NOT NULL DEFAULT '[]'"
+)
 
 _INDEXES: tuple[str, ...] = (
     "CREATE INDEX IF NOT EXISTS idx_headings_document ON headings(document_id)",

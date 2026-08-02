@@ -252,6 +252,12 @@ def _print_index_result(run: IndexRunRecord) -> None:
     typer.echo(f"  Deleted:         {run.files_deleted}")
     typer.echo(f"  Failed:          {run.documents_failed}")
     typer.echo(f"  Warnings:        {run.warning_count}")
+    for warning in run.warnings:
+        wtype = warning.get("type", "warning")
+        path = warning.get("path")
+        message = warning.get("message", "")
+        loc = f" ({path})" if path else ""
+        typer.echo(f"    - [{wtype}]{loc}: {message}")
     if run.completed_at and run.started_at:
         typer.echo(f"  Started:         {run.started_at}")
         typer.echo(f"  Completed:       {run.completed_at}")

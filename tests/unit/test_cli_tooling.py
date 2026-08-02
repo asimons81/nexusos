@@ -51,9 +51,20 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 #: sibling in-progress modules, so the copy keeps the baseline CLI.
 _OVERLAY_FILES = (
     "pyproject.toml",
+    "src/nexusos/core/config.py",
+    "src/nexusos/core/errors.py",
     "src/nexusos/core/models.py",
+    "src/nexusos/indexing/database.py",
+    "src/nexusos/indexing/indexer.py",
+    "src/nexusos/indexing/kernel.py",
+    "src/nexusos/indexing/migrations.py",
+    "src/nexusos/indexing/models.py",
+    "src/nexusos/indexing/schema.py",
     "src/nexusos/services/lint_service.py",
+    "src/nexusos/services/navigation_service.py",
+    "src/nexusos/services/search_service.py",
     "src/nexusos/services/serve_service.py",
+    "src/nexusos/services/status_service.py",
     "src/nexusos/services/demo_service.py",
     "src/nexusos/ui/index.html",
 )
