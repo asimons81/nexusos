@@ -557,14 +557,14 @@ def _print_links(data: dict[str, object]) -> None:
         assert isinstance(link, dict)
         target = link.get("target_path") or "-"
         typer.echo(
-            f"  {link['source_line']}  [[{link['raw_target']}]]  "
+            f"  {link['source_line']}  {link['raw_target']}  "
             f"{link['resolution_state']}  -> {target}"
         )
     typer.echo("Incoming:")
     for link in incoming:
         assert isinstance(link, dict)
         typer.echo(
-            f"  {link['source_line']}  [[{link['raw_target']}]]  "
+            f"  {link['source_line']}  {link['raw_target']}  "
             f"{link['resolution_state']}  <- {link['source_path']}"
         )
 
