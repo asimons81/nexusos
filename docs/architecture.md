@@ -1,0 +1,50 @@
+# Architecture
+
+## Dependency Direction
+
+```
+core (errors, models, path_safety, config)
+    ↓
+workspace (init, identity)
+    ↓
+indexing (ids, models, schema, migrations, database, lock, kernel)
+    ↓
+services (doctor, future: index, status, search, lint)
+    ↓
+cli (Typer + Rich adapter)
+```
+
+- **core** — Zero UI dependencies. Pure Python types, validation, path logic.
+- **workspace** — Templates, identity generation, boundary checks.
+- **indexing** — Internal Phase 2 persistence kernel. Deterministic workspace-scoped IDs, SQLite schema + migrations, transactional storage, exclusive-writer lock, and the `IndexKernel` API (add/update/upsert/remove documents, deterministic candidate lookup, index-run records). Depends on core and workspace; no CLI or MCP imports.
+- **services** — Reusable business logic, callable from CLI or future MCP.
+- **cli** — Thin adapter. Typer commands → service calls → output formatting.
+
+## Design Principles
+
+### Read-Only Contract
+
+v0.1 never mutates source documents. The only allowed writes are:
+- Files explicitly created by `nexusos init`
+- Derived state inside `.nexusos/`
+- Logs/reports explicitly requested
+
+### Disposable Index
+
+The index is fully rebuildable from source files. Delete `.nexusos/index.sqlite3` and re-run indexing — nothing is lost. The kernel enforces this: the database is derived state under `.nexusos/` and is never created by read-only commands (`doctor`, `status`).
+
+### Local First
+
+No network required. No proprietary formats. No accounts. No embeddings service.
+
+### Deterministic Search
+
+SQLite FTS5 only. Results are reproducible and source-cited. No LLM in the retrieval path.
+
+## Not Yet Implemented
+
+- File discovery and parsing pipeline (frontmatter, headings, chunking, wikilinks) — the `indexing/` kernel that persists those results is implemented; the pipeline that produces them is not
+- Search, browse, read, recent, links, context
+- MCP server (stdio and Streamable HTTP)
+- Linting and staleness detection
+- Embeddings or vector database

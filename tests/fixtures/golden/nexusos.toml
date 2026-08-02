@@ -1,0 +1,19 @@
+# NexusOS golden fixture config.
+[workspace]
+name = "golden"
+
+[files]
+include = ["**/*.md", "**/*.txt", "**/*.png", "**/*.jpg"]
+
+[collections]
+wiki = "wiki"
+raw = "raw"
+ops = "ops"
+mocs = "mocs"
+journal = "journal"
+inbox = "inbox"
+
+[indexing]
+chunk_max_chars = 2400
+chunk_overlap_chars = 200
+default_collection = "inbox"
