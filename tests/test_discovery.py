@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -149,3 +150,112 @@ class TestScanWorkspace:
             assert "wiki/link.md" in paths
         finally:
             symlink_path.unlink(missing_ok=True)
+
+
+def _require_permission_tests() -> None:
+    """Skip permission-based tests on platforms where chmod can't deny reads."""
+    if os.name != "posix":
+        pytest.skip("permission-based test requires POSIX")
+    if os.geteuid() == 0:
+        pytest.skip("permission-based test requires non-root user")
+
+
+class TestUnreadableDirectoryRegression:
+    """F2 regression (t_50014353): unreadable dirs must never be silent."""
+
+    def test_discovery_regression_unreadable_dir_warns(self, tmp_path: Path) -> None:
+        # A chmod-000 subdirectory must surface as an unreadable_directory
+        # warning AND the readable sibling files must still be discovered —
+        # never files_seen 0 with warnings 0 when files exist.
+        _require_permission_tests()
+        from nexusos.core.models import NexusOSConfig
+
+        root = tmp_path / "ws"
+        root.mkdir()
+        (root / "wiki").mkdir()
+        (root / "wiki" / "keep.md").write_text("# Keep\n", encoding="utf-8")
+        locked = root / "locked"
+        locked.mkdir()
+        (locked / "secret.md").write_text("# Secret\n", encoding="utf-8")
+        locked.chmod(0o000)
+        try:
+            result = scan_workspace(root, NexusOSConfig())
+        finally:
+            locked.chmod(0o755)
+
+        assert result.warnings, "unreadable dir produced no warnings"
+        unreadable = [w for w in result.warnings if w.get("type") == "unreadable_directory"]
+        assert unreadable, f"no unreadable_directory warning in {result.warnings}"
+        assert any(w.get("path") == "locked" for w in unreadable)
+        assert all("message" in w for w in unreadable)
+
+        paths = {f.normalized_path for f in result.files}
+        assert "wiki/keep.md" in paths, "readable files must still be discovered"
+        assert "locked/secret.md" not in paths, "unreadable subtree must not be indexed"
+        # Never a silent success when source files exist.
+        assert not (len(result.files) == 0 and len(result.warnings) == 0)
+
+    def test_discovery_regression_unreadable_dir_does_not_break_other_dirs(
+        self, tmp_path: Path
+    ) -> None:
+        # Deep unreadable dir: warning still emitted, siblings under the same
+        # parent and the root continue to be scanned.
+        _require_permission_tests()
+        from nexusos.core.models import NexusOSConfig
+
+        root = tmp_path / "ws"
+        root.mkdir()
+        (root / "a").mkdir()
+        (root / "a" / "top.md").write_text("# Top\n", encoding="utf-8")
+        locked = root / "a" / "locked"
+        locked.mkdir()
+        (locked / "deep.md").write_text("# Deep\n", encoding="utf-8")
+        root_locked = root / "z_locked"
+        root_locked.mkdir()
+        root_locked.chmod(0o000)
+        try:
+            result = scan_workspace(root, NexusOSConfig())
+        finally:
+            root_locked.chmod(0o755)
+
+        unreadable = [w for w in result.warnings if w.get("type") == "unreadable_directory"]
+        paths = {w.get("path") for w in unreadable}
+        assert "a/locked" in paths or "z_locked" in paths
+        discovered = {f.normalized_path for f in result.files}
+        assert "a/top.md" in discovered
+
+    def test_file_scoped_exclude_never_prunes_directory(self, tmp_path: Path) -> None:
+        # Review finding (F2): a file-scoped exclude pattern such as **/x
+        # must exclude matching files only, never the whole containing
+        # subtree. Pruning is restricted to whole-subtree patterns (X/**).
+        from nexusos.core.models import NexusOSConfig
+
+        root = tmp_path / "ws"
+        root.mkdir()
+        (root / "wiki").mkdir()
+        (root / "wiki" / "keep.md").write_text("# Keep\n", encoding="utf-8")
+        (root / "wiki" / "x").write_text("file named x\n", encoding="utf-8")
+
+        config = NexusOSConfig(exclude_patterns=["**/x"])
+        result = scan_workspace(root, config)
+        paths = {f.normalized_path for f in result.files}
+        assert "wiki/keep.md" in paths, "file-scoped exclude must not prune the subtree"
+        assert "wiki/x" not in paths, "file-scoped exclude still filters the file"
+
+    def test_subtree_exclude_prunes_directory(self, tmp_path: Path) -> None:
+        # Whole-subtree patterns (X/**) may prune a directory during the
+        # walk: nothing under it is indexable anyway.
+        from nexusos.core.models import NexusOSConfig
+
+        root = tmp_path / "ws"
+        root.mkdir()
+        (root / "draft").mkdir()
+        (root / "draft" / "wip.md").write_text("# Wip\n", encoding="utf-8")
+        (root / "wiki").mkdir()
+        (root / "wiki" / "keep.md").write_text("# Keep\n", encoding="utf-8")
+
+        config = NexusOSConfig(exclude_patterns=["draft/**"])
+        result = scan_workspace(root, config)
+        paths = {f.normalized_path for f in result.files}
+        assert "draft/wip.md" not in paths
+        assert "wiki/keep.md" in paths

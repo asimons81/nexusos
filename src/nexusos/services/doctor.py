@@ -244,6 +244,42 @@ def _check_source_dirs_untouched(root: Path) -> DoctorCheck:
     )
 
 
+def _check_source_dirs_readable(root: Path) -> DoctorCheck:
+    """Verify all source directories are readable.
+
+    An unreadable source directory silently drops its whole subtree from
+    discovery and indexing (F2, t_50014353). Doctor flags it so the loss is
+    never silent. Read-only: does not create or touch the index database.
+    Directories excluded by the workspace config (whole-subtree patterns)
+    are skipped, matching the scanner, so excluded trees never fail doctor.
+    """
+    from nexusos.core.config import load_config_effective
+    from nexusos.discovery.scanner import scan_unreadable_directories
+
+    try:
+        config = load_config_effective(root)
+        exclude_patterns = config.exclude_patterns
+    except ConfigError:
+        # Config parsing failures are reported by the config_parsing check.
+        exclude_patterns = None
+
+    unreadable = scan_unreadable_directories(root, exclude_patterns=exclude_patterns)
+    if unreadable:
+        paths = ", ".join(str(w.get("path") or w.get("message") or "?") for w in unreadable)
+        details = "; ".join(str(w.get("message", "")) for w in unreadable)
+        return DoctorCheck(
+            check="source_dirs_readable",
+            status=CheckStatus.FAIL,
+            message=f"Unreadable source directories: {paths}",
+            detail=details,
+        )
+    return DoctorCheck(
+        check="source_dirs_readable",
+        status=CheckStatus.PASS,
+        message="All source directories readable",
+    )
+
+
 def run_doctor(
     path: Path | None = None,
     *,
@@ -272,6 +308,7 @@ def run_doctor(
         checks.append(_check_template_files(root))
         checks.append(_check_nested_workspaces(root))
         checks.append(_check_source_dirs_untouched(root))
+        checks.append(_check_source_dirs_readable(root))
 
     passed = sum(1 for c in checks if c.status == CheckStatus.PASS)
     warnings = sum(1 for c in checks if c.status == CheckStatus.WARNING)

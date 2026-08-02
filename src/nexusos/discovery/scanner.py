@@ -7,12 +7,28 @@ document content — that belongs to ``nexusos.parsing``.
 
 from __future__ import annotations
 
+import os
 import re
-from pathlib import Path  # noqa: TC003
+from pathlib import Path
 from typing import Any
 
 from nexusos.core.models import NexusOSConfig
 from nexusos.discovery.models import DiscoveredFile, DiscoveryResult
+
+# Default exclusions always applied by the scanner. Whole-subtree patterns
+# (``X/**``) are also used to prune excluded directories during the walk so
+# excluded trees are never read and never emit unreadable-directory warnings.
+_DEFAULT_EXCLUDE_PATTERNS: list[str] = [
+    ".git/**",
+    ".nexusos/**",
+    "node_modules/**",
+    ".venv/**",
+    "**/.DS_Store",
+    "**/Thumbs.db",
+    "**/Zone.Identifier",
+    "**/__pycache__/**",
+    "**/.direnv/**",
+]
 
 
 def _compile_patterns(patterns: list[str]) -> list[re.Pattern[str]]:
@@ -70,6 +86,97 @@ def _normalize_path(relative: str) -> str:
     return path
 
 
+def _prune_patterns(patterns: list[str]) -> list[str]:
+    """Return only whole-subtree patterns (ending in ``/**``).
+
+    Only these may prune a directory during the walk: for ``X/**`` every
+    file under a matching directory is excluded, so descending is wasted
+    work and any unreadable-dir error inside is irrelevant. File-scoped
+    patterns such as ``**/x`` match individual files and must never prune
+    a directory — otherwise ``**/x`` would silently drop every subtree that
+    contains a file named ``x`` (F2 review finding).
+    """
+    return [p for p in patterns if p.endswith("/**")]
+
+
+def _walk_workspace(
+    root: Path,
+    prune_rx: list[re.Pattern[str]],
+) -> tuple[list[Path], list[dict[str, Any]]]:
+    """Explicitly walk the tree, reporting unreadable directories.
+
+    Replaces ``root.glob("**/*")``, which silently skips permission-denied
+    subdirectories. Every directory that raises an ``OSError`` during
+    traversal is surfaced as an ``unreadable_directory`` warning so an
+    unreadable subtree can never be a silent success. Directories matched
+    by whole-subtree exclusion patterns are pruned before descent, so
+    excluded trees are never read and never produce noise warnings.
+
+    Returns ``(files, warnings)`` with files sorted by normalized relative
+    path for deterministic ordering.
+    """
+    files: list[Path] = []
+    warnings: list[dict[str, Any]] = []
+
+    def _onerror(exc: OSError) -> None:
+        failed = Path(exc.filename) if exc.filename else root
+        try:
+            rel = failed.resolve(strict=False).relative_to(root.resolve(strict=False))
+            normalized = _normalize_path(str(rel))
+        except (OSError, ValueError):
+            normalized = str(failed)
+        if normalized in ("", "."):
+            warnings.append(
+                {
+                    "type": "discovery_error",
+                    "message": f"cannot scan workspace: {exc}",
+                }
+            )
+        else:
+            warnings.append(
+                {
+                    "type": "unreadable_directory",
+                    "path": normalized,
+                    "message": str(exc),
+                }
+            )
+
+    def _is_pruned_dir(normalized_dir: str) -> bool:
+        # A directory is pruned when a placeholder file under it would be
+        # excluded by a whole-subtree pattern (``X/**``). File-only patterns
+        # never appear in ``prune_rx``, so they cannot prune a directory.
+        probe = f"{normalized_dir}/x" if normalized_dir else "x"
+        return _match_any(prune_rx, probe)
+
+    for dirpath, dirnames, filenames in os.walk(root, onerror=_onerror, followlinks=False):
+        dir_rel = Path(dirpath).relative_to(root)
+        dir_norm = _normalize_path(str(dir_rel)) if str(dir_rel) != "." else ""
+        dirnames[:] = [
+            d for d in dirnames if not _is_pruned_dir(f"{dir_norm}/{d}" if dir_norm else d)
+        ]
+        for name in filenames:
+            files.append(Path(dirpath) / name)
+
+    files.sort(key=lambda p: _normalize_path(str(p.relative_to(root))))
+    return files, warnings
+
+
+def scan_unreadable_directories(
+    root: Path,
+    exclude_patterns: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Return unreadable-directory and discovery-error warnings under root.
+
+    Read-only helper used by doctor: walks the tree with the default
+    exclusions plus the caller's config exclude patterns and returns the
+    warnings describing directories that could not be read.
+    """
+    patterns = _prune_patterns(exclude_patterns or []) + _prune_patterns(_DEFAULT_EXCLUDE_PATTERNS)
+    prune_rx = _compile_patterns(patterns)
+    _, warnings = _walk_workspace(root, prune_rx)
+    return [w for w in warnings if w.get("type") in ("unreadable_directory", "discovery_error")]
+
+
 def scan_workspace(
     workspace_root: Path,
     config: NexusOSConfig,
@@ -84,28 +191,19 @@ def scan_workspace(
     exclude_rx = _compile_patterns(config.exclude_patterns)
 
     # Default exclusions that are always applied
-    default_exclude_rx = _compile_patterns(
-        [
-            ".git/**",
-            ".nexusos/**",
-            "node_modules/**",
-            ".venv/**",
-            "**/.DS_Store",
-            "**/Thumbs.db",
-            "**/Zone.Identifier",
-            "**/__pycache__/**",
-            "**/.direnv/**",
-        ]
+    default_exclude_rx = _compile_patterns(_DEFAULT_EXCLUDE_PATTERNS)
+
+    # Whole-subtree patterns only: file-scoped excludes must never prune
+    # directories during the walk (F2 review finding).
+    prune_rx = _compile_patterns(
+        _prune_patterns(config.exclude_patterns) + _prune_patterns(_DEFAULT_EXCLUDE_PATTERNS)
     )
 
     discovered: dict[str, DiscoveredFile] = {}
     warnings: list[dict[str, Any]] = []
 
     try:
-        files = sorted(
-            root.glob("**/*"),
-            key=lambda p: _normalize_path(str(p.relative_to(root))),
-        )
+        walked, walk_warnings = _walk_workspace(root, prune_rx)
     except OSError as exc:
         return DiscoveryResult(
             files=[],
@@ -116,6 +214,8 @@ def scan_workspace(
                 }
             ],
         )
+    warnings.extend(walk_warnings)
+    files = walked
 
     for file_path in files:
         if not file_path.is_file():
