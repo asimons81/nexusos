@@ -80,6 +80,9 @@ def init(
     except NexusOSError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=exc.exit_code)
+    except OSError as exc:
+        typer.echo(f"Error: cannot initialize workspace at {target}: {exc}", err=True)
+        raise typer.Exit(code=1)
 
     if dry_run:
         typer.echo(f"Dry run for: {target}")
@@ -168,10 +171,18 @@ def config(
         ws_root = detected
 
     if effective:
-        nexus_config = load_config_effective(ws_root)
+        try:
+            nexus_config = load_config_effective(ws_root)
+        except NexusOSError as exc:
+            typer.echo(f"Error: {exc}", err=True)
+            raise typer.Exit(code=exc.exit_code)
     else:
         config_path = ws_root / "nexusos.toml"
-        nexus_config = load_config(config_path, apply_env=False)
+        try:
+            nexus_config = load_config(config_path, apply_env=False)
+        except NexusOSError as exc:
+            typer.echo(f"Error: {exc}", err=True)
+            raise typer.Exit(code=exc.exit_code)
 
     if use_json:
         typer.echo(json.dumps(nexus_config.to_safe_dict(), indent=2, default=str))
@@ -457,6 +468,13 @@ def serve(
     bind_host = host or config.server_host
     bind_port = port if port is not None else config.server_port
 
+    if not (0 <= bind_port <= 65535):
+        typer.echo(
+            f"Error: invalid port {bind_port}; port must be between 0 and 65535",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
     if not is_loopback_host(bind_host):
         typer.echo(
             f"Warning: binding to non-loopback host {bind_host!r} exposes the "
@@ -467,7 +485,7 @@ def serve(
 
     try:
         server = create_server(ws_root, host=bind_host, port=bind_port)
-    except OSError as exc:
+    except (OSError, OverflowError) as exc:
         typer.echo(f"Error: cannot bind {bind_host}:{bind_port} — {exc}", err=True)
         raise typer.Exit(code=1)
 
@@ -543,6 +561,12 @@ def _serve_mcp(
     else:
         bind_host = host or config.server_host
         bind_port = port if port is not None else config.server_port
+        if not (0 <= bind_port <= 65535):
+            typer.echo(
+                f"Error: invalid port {bind_port}; port must be between 0 and 65535",
+                err=True,
+            )
+            raise typer.Exit(code=2)
         if not is_loopback_host(bind_host):
             typer.echo(
                 f"Warning: binding MCP Streamable HTTP to non-loopback host "

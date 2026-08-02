@@ -29,7 +29,7 @@ dependencies = [
 ]
 
 [project.scripts]
-nexusos = "nexusos.cli.main:app"
+nexusos = "nexusos.cli.main:main"
 
 [project.urls]
 Homepage = "https://github.com/asimons81/nexusOS"
