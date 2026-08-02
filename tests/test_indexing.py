@@ -88,3 +88,60 @@ class TestEndToEndIndex:
             assert any("config fingerprint" in r for r in status["stale_reasons"])
         finally:
             toml_path.write_text(original)
+
+
+def test_index_regression_heading_paths_preserved(tmp_path: Path) -> None:
+    """L2: run_index persists correct ancestor heading paths (F1 regression).
+
+    The O(n) rewrite must not change the stored heading-path values: a nested
+    document keeps its ancestor chain in the headings table exactly as before.
+    """
+    import json
+
+    from nexusos.indexing.kernel import IndexKernel
+
+    ws = tmp_path / "paths"
+    ws.mkdir()
+    nexusos_dir = ws / ".nexusos"
+    nexusos_dir.mkdir(exist_ok=True)
+    identity = {
+        "schema_version": 1,
+        "workspace_id": "nxo_ws_paths",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "nexusos_version": "0.1.0",
+    }
+    (nexusos_dir / "workspace.json").write_text(json.dumps(identity))
+
+    (ws / "nexusos.toml").write_text(
+        "[files]\n"
+        'include = ["**/*.md"]\n'
+        "\n"
+        "[indexing]\n"
+        "chunk_max_chars = 2400\n"
+        "chunk_overlap_chars = 200\n"
+    )
+    (ws / "wiki").mkdir()
+    (ws / "wiki" / "nested.md").write_text(
+        "# Top\n\n## Mid\n\n### Deep\n\nbody\n\n## Sibling\n\nbody\n",
+        encoding="utf-8",
+    )
+
+    config = load_config_effective(ws)
+    run = run_index(ws, config, full=True)
+    assert run.success is True
+    assert run.files_added == 1
+
+    kernel = IndexKernel(ws)
+    kernel.open()
+    try:
+        doc = kernel.get_document("wiki/nested.md")
+        assert doc is not None
+        paths = {h.ordinal: h.heading_path for h in doc.headings}
+        assert paths == {
+            1: ("Top",),
+            2: ("Top", "Mid"),
+            3: ("Top", "Mid", "Deep"),
+            4: ("Top", "Sibling"),
+        }
+    finally:
+        kernel.close()

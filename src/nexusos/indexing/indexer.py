@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Sequence  # noqa: TC003
 from datetime import UTC, datetime
 from pathlib import Path  # noqa: TC003
 from typing import Any
@@ -27,6 +26,7 @@ from nexusos.indexing.models import (
     IndexedLink,
     IndexRunRecord,
 )
+from nexusos.parsing.headings import build_heading_hierarchy
 
 
 def _iso_now() -> str:
@@ -196,10 +196,11 @@ def _index_pass(
         ws_id = kernel.workspace_id
         doc_id = make_document_id(ws_id, parsed.normalized_path)
 
-        # Headings
+        # Headings: build the ancestor-path hierarchy once per document in a
+        # single O(n) pass, then look up each heading's path by ordinal.
+        hierarchy = build_heading_hierarchy(parsed.headings)
         ihs: list[IndexedHeading] = []
         for h in parsed.headings:
-            hp = _build_path_for_ordinal(parsed.headings, h.ordinal)
             ihs.append(
                 IndexedHeading(
                     ordinal=h.ordinal,
@@ -207,7 +208,7 @@ def _index_pass(
                     text=h.text,
                     normalized_text=h.normalized_text,
                     line=h.line,
-                    heading_path=hp,
+                    heading_path=hierarchy[h.ordinal],
                 )
             )
         all_headings[doc_id] = ihs
@@ -310,29 +311,6 @@ def _index_pass(
         error_count=failed,
     )
     return completed
-
-
-def _build_path_for_ordinal(
-    headings: Sequence[object],
-    target_ordinal: int,
-) -> tuple[str, ...]:
-    """Build ancestor heading path for a given ordinal."""
-    path: list[str] = []
-    for h in headings:
-        if getattr(h, "ordinal", 0) > target_ordinal:
-            break
-        while path:
-            last_level = 0
-            for ph in headings:
-                if getattr(ph, "text", "") == path[-1]:
-                    last_level = getattr(ph, "level", 0)
-                    break
-            if last_level >= getattr(h, "level", 0):
-                path.pop()
-            else:
-                break
-        path.append(getattr(h, "text", ""))
-    return tuple(path)
 
 
 def _update_links_for_document(

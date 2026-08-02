@@ -10,7 +10,8 @@ import hashlib
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from nexusos.parsing.models import ParsedDocument, ParsedHeading
+from nexusos.parsing.headings import build_heading_hierarchy
+from nexusos.parsing.models import ParsedDocument
 
 
 class ChunkCandidate(BaseModel):
@@ -28,22 +29,6 @@ class ChunkCandidate(BaseModel):
 
 def _sha256(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
-
-
-def _build_heading_hierarchy(
-    headings: list[ParsedHeading],
-) -> dict[int, tuple[str, ...]]:
-    """Build a map from heading ordinal → heading path (ancestor chain)."""
-    hierarchy: dict[int, tuple[str, ...]] = {}
-    stack: list[tuple[int, str]] = []  # (level, text)
-
-    for h in headings:
-        while stack and stack[-1][0] >= h.level:
-            stack.pop()
-        stack.append((h.level, h.text))
-        hierarchy[h.ordinal] = tuple(item[1] for item in stack)
-
-    return hierarchy
 
 
 def chunk_document(
@@ -68,7 +53,7 @@ def _chunk_markdown(
     """Chunk a markdown document heading-by-heading."""
     lines = doc.full_text.split("\n")
     headings = doc.headings
-    hierarchy = _build_heading_hierarchy(headings)
+    hierarchy = build_heading_hierarchy(headings)
 
     # Find body start (after frontmatter)
     body_start = 1
@@ -89,6 +74,14 @@ def _chunk_markdown(
     # Identify heading sections: each section starts at a heading line
     # and runs until the next heading at the same or higher level.
     heading_lines: set[int] = {h.line for h in headings}
+    # First-wins line → ordinal map: extract_headings can emit two headings
+    # on the same line (an ATX heading followed by a setext underline, e.g.
+    # "# Foo" + "---"), and the historical scan resolved such lines to the
+    # FIRST heading. Preserve that (last-wins would change the chunk path).
+    line_to_ordinal: dict[int, int] = {}
+    for h in headings:
+        if h.line not in line_to_ordinal:
+            line_to_ordinal[h.line] = h.ordinal
     section_start = body_start
     current_heading_ordinal: int | None = None
 
@@ -101,11 +94,8 @@ def _chunk_markdown(
                 path = hierarchy.get(current_heading_ordinal, ()) if current_heading_ordinal else ()
                 sections.append((section_start, line_num - 1, path))
             section_start = line_num
-            # Find the heading ordinal for this line
-            for h in headings:
-                if h.line == line_num:
-                    current_heading_ordinal = h.ordinal
-                    break
+            # Find the heading ordinal for this line (O(1) lookup)
+            current_heading_ordinal = line_to_ordinal[line_num]
 
     # Final section
     if section_start <= len(lines):

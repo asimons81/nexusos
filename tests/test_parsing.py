@@ -4,8 +4,13 @@ from __future__ import annotations
 
 from nexusos.discovery.models import DiscoveredFile
 from nexusos.parsing.frontmatter import extract_frontmatter
-from nexusos.parsing.headings import extract_headings
+from nexusos.parsing.headings import (
+    build_heading_hierarchy,
+    build_heading_path,
+    extract_headings,
+)
 from nexusos.parsing.markdown import parse_markdown
+from nexusos.parsing.models import ParsedHeading
 from nexusos.parsing.plaintext import parse_plaintext
 from nexusos.parsing.wikilinks import extract_wikilinks
 
@@ -70,6 +75,86 @@ class TestHeadings:
         headings = extract_headings(lines)
         assert len(headings) == 1
         assert headings[0].level == 2
+
+
+class TestHeadingHierarchy:
+    """L2 regression guard for the O(n) heading-path builder (F1).
+
+    Verifies the single-pass stack hierarchy matches expected ancestor
+    chains for flat, nested, sibling, and level-jump documents, and that
+    ``build_heading_path`` stays consistent with ``build_heading_hierarchy``.
+    """
+
+    def _headings(self, levels: list[int]) -> list[ParsedHeading]:
+        out: list[ParsedHeading] = []
+        for i, level in enumerate(levels, start=1):
+            out.append(
+                ParsedHeading(
+                    ordinal=i,
+                    level=level,
+                    text=f"H{i}",
+                    normalized_text=f"h{i}",
+                    line=i,
+                )
+            )
+        return out
+
+    def test_flat_headings_each_own_path(self) -> None:
+        headings = self._headings([1, 1, 1])
+        hierarchy = build_heading_hierarchy(headings)
+        assert hierarchy == {
+            1: ("H1",),
+            2: ("H2",),
+            3: ("H3",),
+        }
+
+    def test_nested_heading_full_ancestor_chain(self) -> None:
+        headings = self._headings([1, 2, 3])
+        hierarchy = build_heading_hierarchy(headings)
+        assert hierarchy == {
+            1: ("H1",),
+            2: ("H1", "H2"),
+            3: ("H1", "H2", "H3"),
+        }
+
+    def test_sibling_after_deep_chain_pops_back(self) -> None:
+        headings = self._headings([1, 2, 3, 2])
+        hierarchy = build_heading_hierarchy(headings)
+        assert hierarchy == {
+            1: ("H1",),
+            2: ("H1", "H2"),
+            3: ("H1", "H2", "H3"),
+            4: ("H1", "H4"),  # sibling at level 2 replaces level-3 child
+        }
+
+    def test_level_jump_up_replaces_branch(self) -> None:
+        headings = self._headings([1, 2, 3, 2, 1])
+        hierarchy = build_heading_hierarchy(headings)
+        assert hierarchy[5] == ("H5",)  # level 1 resets the chain
+
+    def test_first_heading_not_level_one(self) -> None:
+        headings = self._headings([3, 1, 2])
+        hierarchy = build_heading_hierarchy(headings)
+        assert hierarchy == {
+            1: ("H1",),
+            2: ("H2",),
+            3: ("H2", "H3"),
+        }
+
+    def test_duplicate_text_levels_resolved_by_level_not_text(self) -> None:
+        # Same text at different levels must not confuse the ancestor chain
+        # (the old text-scan implementation could match the wrong heading).
+        headings = self._headings([1, 2, 1])
+        headings[1] = headings[1].model_copy(update={"text": "H1"})
+        hierarchy = build_heading_hierarchy(headings)
+        assert hierarchy[2] == ("H1", "H1")
+        assert hierarchy[3] == ("H3",)
+
+    def test_build_heading_path_matches_hierarchy(self) -> None:
+        headings = self._headings([1, 2, 3, 2, 1, 2])
+        hierarchy = build_heading_hierarchy(headings)
+        for h in headings:
+            assert tuple(build_heading_path(headings, h.ordinal)) == hierarchy[h.ordinal]
 
 
 class TestWikilinks:

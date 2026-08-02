@@ -64,3 +64,22 @@ class TestChunkDocument:
             assert c.start_line <= c.end_line
             assert c.start_line >= 1
             assert c.end_line <= doc.line_count
+
+    def test_same_line_atx_and_setext_keeps_first_heading_path(self) -> None:
+        """Chunk heading path for a line with two headings resolves to the first.
+
+        extract_headings can emit two headings on one line ("# Foo" parsed as
+        ATX, then the following "---" parsed as a setext underline). The
+        historical line→ordinal scan was first-match; the O(1) rewrite must
+        keep first-wins semantics so the chunk path stays ("Foo",) instead of
+        ("Foo", "# Foo").
+        """
+        text = "# Foo\n---\n\nbody\n"
+        headings = [
+            ParsedHeading(ordinal=1, level=1, text="Foo", normalized_text="foo", line=1),
+            ParsedHeading(ordinal=2, level=2, text="# Foo", normalized_text="# foo", line=1),
+        ]
+        doc = _make_parsed(text, headings)
+        chunks = chunk_document(doc, chunk_max_chars=2400, chunk_overlap_chars=200)
+        assert chunks
+        assert chunks[0].heading_path == ("Foo",)

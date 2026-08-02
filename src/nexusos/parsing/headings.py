@@ -112,27 +112,38 @@ def _try_setext(lines: list[str], idx: int) -> tuple[int, str] | None:
     return None
 
 
+def build_heading_hierarchy(headings: list[ParsedHeading]) -> dict[int, tuple[str, ...]]:
+    """Build the ancestor heading-path hierarchy in a single O(n) pass.
+
+    Returns a mapping from heading ordinal to its full ancestor chain as a
+    tuple of heading texts, e.g. ``{1: ("Intro",), 2: ("Intro", "Details")}``.
+    Uses an explicit (level, text) stack so each heading is pushed and popped
+    at most once — no rescans, no quadratic blowup.
+    """
+    hierarchy: dict[int, tuple[str, ...]] = {}
+    stack: list[tuple[int, str]] = []  # (level, text)
+
+    for h in headings:
+        while stack and stack[-1][0] >= h.level:
+            stack.pop()
+        stack.append((h.level, h.text))
+        hierarchy[h.ordinal] = tuple(item[1] for item in stack)
+
+    return hierarchy
+
+
 def build_heading_path(headings: list[ParsedHeading], up_to_ordinal: int) -> list[str]:
     """Build the heading path (hierarchy) for a given heading ordinal.
 
     Returns the full ancestor chain as a list of heading texts, e.g.
-    ["Introduction", "Background", "Details"].
+    ["Introduction", "Background", "Details"]. For an ordinal between two
+    headings (or past the end), returns the chain as of the last heading
+    with ``ordinal <= up_to_ordinal``; empty if none.
     """
-    path: list[str] = []
-    for h in headings:
-        if h.ordinal > up_to_ordinal:
+    best: tuple[str, ...] = ()
+    for ordinal, path in build_heading_hierarchy(headings).items():
+        if ordinal <= up_to_ordinal:
+            best = path
+        else:
             break
-        # Remove deeper headings that are no longer ancestors
-        while path and _heading_level_for_path(path, headings) >= h.level:
-            path.pop()
-        path.append(h.text)
-    return path
-
-
-def _heading_level_for_path(path: list[str], headings: list[ParsedHeading]) -> int:
-    """Find the level of the deepest heading in the path."""
-    deepest = 0
-    for h in headings:
-        if h.text in path:
-            deepest = max(deepest, h.level)
-    return deepest
+    return list(best)
