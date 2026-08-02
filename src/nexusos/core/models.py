@@ -122,3 +122,39 @@ class DoctorReport(BaseModel):
     warnings: int = 0
     failures: int = 0
     healthy: bool = False
+
+
+# Lint check severity
+class LintStatus:
+    PASS = "pass"
+    FAIL = "fail"
+    ERROR = "error"
+
+
+class LintCheck(BaseModel):
+    """A single static-analysis tool check result for `nexusos lint`."""
+
+    tool: str
+    status: str  # pass | fail | error
+    message: str
+    output: str = ""
+
+
+class LintReport(BaseModel):
+    """Aggregate result of running the kernel's static-analysis tooling.
+
+    ``nexusos lint`` is developer tooling: it runs the project's own
+    lint/type-check tools (ruff, mypy) over the kernel source. It is NOT the
+    workspace vault linter, which remains a future product feature.
+    """
+
+    repo_root: str
+    checks: list[LintCheck] = Field(default_factory=list)
+    passed: int = 0
+    failed: int = 0
+    errors: int = 0
+
+    @property
+    def has_findings(self) -> bool:
+        """True when any tool failed or could not be run."""
+        return self.failed > 0 or self.errors > 0

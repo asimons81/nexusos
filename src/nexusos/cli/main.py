@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import sys
+import threading
 from pathlib import Path
 
 import typer
@@ -15,8 +17,23 @@ from nexusos.core.errors import NexusOSError
 from nexusos.core.models import DoctorReport, NexusOSConfig
 from nexusos.core.path_safety import workspace_root as detect_workspace
 from nexusos.indexing.models import IndexRunRecord
+from nexusos.services.demo_service import print_demo, run_demo
 from nexusos.services.doctor import run_doctor
 from nexusos.services.index_service import index_workspace
+from nexusos.services.lint_service import (
+    LINT_TOOLS,
+    find_repo_root,
+    print_lint_report,
+    run_lint,
+)
+from nexusos.services.navigation_service import (
+    browse_workspace,
+    document_context,
+    document_links,
+    read_document,
+    recent_documents,
+)
+from nexusos.services.serve_service import create_server
 from nexusos.services.status_service import get_status
 from nexusos.workspace.init import init_workspace
 
@@ -277,6 +294,324 @@ def search() -> None:
     """Search the index (not yet implemented)."""
     typer.echo("Search is not yet implemented in this version.", err=True)
     raise typer.Exit(code=1)
+
+
+def _resolve_workspace(workspace: Path | None) -> Path:
+    """Resolve an explicit or detected workspace root (shared by commands)."""
+    if workspace:
+        return workspace.resolve(strict=True)
+    detected = detect_workspace(Path.cwd())
+    if detected is None:
+        typer.echo("Error: No workspace detected. Run `nexusos init` first.", err=True)
+        raise typer.Exit(code=2)
+    return detected
+
+
+@app.command()
+def lint(
+    tool: str = typer.Option(
+        None,
+        "--tool",
+        help=f"Run a single tool instead of all: {', '.join(LINT_TOOLS)}",
+    ),
+    use_json: bool = typer.Option(False, "--json", help="Output in JSON format"),
+    repo: Path | None = typer.Option(
+        None, "--repo", help="NexusOS repo root (default: auto-detect)"
+    ),
+) -> None:
+    """Run static checks over the kernel source using the project's own tooling.
+
+    Developer tooling: runs ruff (lint + format check) and mypy over the
+    NexusOS source tree and exits non-zero when any tool reports findings.
+    This is not the workspace vault linter (a future product feature).
+    """
+    if tool is not None and tool not in LINT_TOOLS:
+        typer.echo(f"Unknown lint tool: {tool}; expected one of {', '.join(LINT_TOOLS)}", err=True)
+        raise typer.Exit(code=2)
+
+    root = repo or find_repo_root()
+    if root is None:
+        typer.echo(
+            "Error: could not locate the NexusOS source tree (pyproject.toml). "
+            "Run from the repository checkout or pass --repo.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+    report = run_lint(repo_root=root, tool=tool)
+    print_lint_report(report, use_json=use_json)
+    if report.has_findings:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def serve(
+    workspace: Path | None = typer.Option(None, "--workspace", "-w", help="Path to workspace root"),
+    host: str | None = typer.Option(None, "--host", help="Bind host (default: config server_host)"),
+    port: int | None = typer.Option(None, "--port", help="Bind port (default: config server_port)"),
+) -> None:
+    """Serve kernel data over a local HTTP server.
+
+    Starts a read-only HTTP server exposing the workspace index (status,
+    counts, documents, meta, runs) as JSON plus any packaged UI assets.
+    Shuts down cleanly on SIGINT/SIGTERM (Ctrl-C).
+    """
+    ws_root = _resolve_workspace(workspace)
+
+    try:
+        config = load_config_effective(ws_root)
+    except NexusOSError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=exc.exit_code)
+
+    bind_host = host or config.server_host
+    bind_port = port if port is not None else config.server_port
+
+    try:
+        server = create_server(ws_root, host=bind_host, port=bind_port)
+    except OSError as exc:
+        typer.echo(f"Error: cannot bind {bind_host}:{bind_port} — {exc}", err=True)
+        raise typer.Exit(code=1)
+
+    actual_host, actual_port = (str(x) for x in server.server_address[:2])
+    serve_url = f"http://{actual_host}:{actual_port}"
+    typer.echo(f"Serving NexusOS kernel data on {serve_url} (workspace: {ws_root})")
+    typer.echo("Press Ctrl-C (SIGINT) to stop.")
+
+    stop_event = threading.Event()
+
+    def _handle_signal(signum: int, frame: object) -> None:
+        stop_event.set()
+
+    signal.signal(signal.SIGINT, _handle_signal)
+    signal.signal(signal.SIGTERM, _handle_signal)
+
+    thread = threading.Thread(
+        target=server.serve_forever, kwargs={"poll_interval": 0.2}, daemon=True
+    )
+    thread.start()
+    try:
+        while not stop_event.wait(0.2):
+            pass
+    finally:
+        typer.echo("Shutting down...")
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+        typer.echo("Server stopped.")
+
+
+@app.command()
+def demo(
+    path: Path | None = typer.Option(None, "--path", help="Where to create the demo vault"),
+    remove: bool = typer.Option(False, "--remove", help="Delete the demo vault when done"),
+) -> None:
+    """Run a scripted walkthrough of core features.
+
+    Creates a synthetic demo vault (init → seed → index → status → doctor)
+    and prints the equivalent CLI commands as usage examples. The vault
+    lives in a temporary directory unless --path is given.
+    """
+    try:
+        result = run_demo(path, remove=remove)
+    except NexusOSError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=exc.exit_code)
+
+    print_demo(result)
+    if not result.get("doctor_healthy", False):
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def browse(
+    collection: str | None = typer.Argument(
+        None, help="Restrict to a single collection (e.g. wiki)"
+    ),
+    workspace: Path | None = typer.Option(None, "--workspace", "-w", help="Path to workspace root"),
+    limit: int | None = typer.Option(None, "--limit", "-l", help="Maximum number of items"),
+    use_json: bool = typer.Option(False, "--json", help="Output in JSON format"),
+) -> None:
+    """List available notes/modules in the workspace index."""
+    ws_root = _resolve_workspace(workspace)
+    try:
+        data = browse_workspace(ws_root, collection=collection, limit=limit)
+    except NexusOSError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=exc.exit_code)
+
+    if use_json:
+        typer.echo(json.dumps(data, indent=2, default=str))
+    else:
+        _print_browse(data)
+
+
+def _print_browse(data: dict[str, object]) -> None:
+    """Print a script-friendly browse listing."""
+    documents = data["documents"]
+    assert isinstance(documents, list)
+    if not documents:
+        typer.echo("No documents.")
+        return
+    typer.echo(f"Documents: {data['count']}")
+    for doc in documents:
+        assert isinstance(doc, dict)
+        typer.echo(f"  {doc['path']}  {doc['title']}  [{doc['collection']}]")
+
+
+@app.command()
+def read(
+    item: str = typer.Argument(..., help="Document ID, relative path, or name"),
+    workspace: Path | None = typer.Option(None, "--workspace", "-w", help="Path to workspace root"),
+    lines: int | None = typer.Option(None, "--lines", "-n", help="Maximum lines to print"),
+    max_chars: int | None = typer.Option(None, "--max-chars", help="Maximum characters to print"),
+    use_json: bool = typer.Option(False, "--json", help="Output in JSON format"),
+) -> None:
+    """Print the content of a named item with its path."""
+    ws_root = _resolve_workspace(workspace)
+    try:
+        data = read_document(ws_root, item, max_lines=lines, max_chars=max_chars)
+    except NexusOSError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=exc.exit_code)
+
+    if use_json:
+        typer.echo(json.dumps(data, indent=2, default=str))
+    else:
+        _print_read(data)
+
+
+def _print_read(data: dict[str, object]) -> None:
+    """Print a document's path header followed by its content."""
+    typer.echo(f"Path: {data['path']}")
+    typer.echo(f"Title: {data['title']}")
+    typer.echo(f"Collection: {data['collection']}")
+    typer.echo("---")
+    typer.echo(data["content"])
+    if data.get("truncated"):
+        typer.echo("[truncated]", err=True)
+
+
+@app.command()
+def recent(
+    workspace: Path | None = typer.Option(None, "--workspace", "-w", help="Path to workspace root"),
+    limit: int = typer.Option(10, "--limit", "-l", help="Maximum number of items"),
+    use_json: bool = typer.Option(False, "--json", help="Output in JSON format"),
+) -> None:
+    """List recently modified items (newest first)."""
+    ws_root = _resolve_workspace(workspace)
+    try:
+        data = recent_documents(ws_root, limit=limit)
+    except NexusOSError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=exc.exit_code)
+
+    if use_json:
+        typer.echo(json.dumps(data, indent=2, default=str))
+    else:
+        _print_recent(data)
+
+
+def _print_recent(data: dict[str, object]) -> None:
+    """Print a script-friendly recent listing."""
+    documents = data["documents"]
+    assert isinstance(documents, list)
+    if not documents:
+        typer.echo("No documents.")
+        return
+    typer.echo(f"Recent: {data['count']}")
+    for doc in documents:
+        assert isinstance(doc, dict)
+        typer.echo(f"  {doc['mtime']}  {doc['path']}  {doc['title']}")
+
+
+@app.command()
+def links(
+    item: str = typer.Argument(..., help="Document ID, relative path, or name"),
+    workspace: Path | None = typer.Option(None, "--workspace", "-w", help="Path to workspace root"),
+    use_json: bool = typer.Option(False, "--json", help="Output in JSON format"),
+) -> None:
+    """Show outgoing and incoming wiki links for an item."""
+    ws_root = _resolve_workspace(workspace)
+    try:
+        data = document_links(ws_root, item)
+    except NexusOSError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=exc.exit_code)
+
+    if use_json:
+        typer.echo(json.dumps(data, indent=2, default=str))
+    else:
+        _print_links(data)
+
+
+def _print_links(data: dict[str, object]) -> None:
+    """Print a script-friendly links listing."""
+    typer.echo(f"Path: {data['path']}")
+    outgoing = data["outgoing"]
+    incoming = data["incoming"]
+    assert isinstance(outgoing, list)
+    assert isinstance(incoming, list)
+    typer.echo("Outgoing:")
+    for link in outgoing:
+        assert isinstance(link, dict)
+        target = link.get("target_path") or "-"
+        typer.echo(
+            f"  {link['source_line']}  [[{link['raw_target']}]]  "
+            f"{link['resolution_state']}  -> {target}"
+        )
+    typer.echo("Incoming:")
+    for link in incoming:
+        assert isinstance(link, dict)
+        typer.echo(
+            f"  {link['source_line']}  [[{link['raw_target']}]]  "
+            f"{link['resolution_state']}  <- {link['source_path']}"
+        )
+
+
+@app.command()
+def context(
+    item: str = typer.Argument(..., help="Document ID, relative path, or name"),
+    workspace: Path | None = typer.Option(None, "--workspace", "-w", help="Path to workspace root"),
+    use_json: bool = typer.Option(False, "--json", help="Output in JSON format"),
+) -> None:
+    """Show surrounding or related items for a document."""
+    ws_root = _resolve_workspace(workspace)
+    try:
+        data = document_context(ws_root, item)
+    except NexusOSError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=exc.exit_code)
+
+    if use_json:
+        typer.echo(json.dumps(data, indent=2, default=str))
+    else:
+        _print_context(data)
+
+
+def _print_context(data: dict[str, object]) -> None:
+    """Print a script-friendly context listing."""
+    typer.echo(f"Path: {data['path']}")
+    typer.echo(f"Title: {data['title']}")
+    typer.echo(f"Collection: {data['collection']}")
+    headings = data["headings"]
+    siblings = data["siblings"]
+    linked = data["linked"]
+    assert isinstance(headings, list)
+    assert isinstance(siblings, list)
+    assert isinstance(linked, list)
+
+    typer.echo("Headings:")
+    for heading in headings:
+        assert isinstance(heading, dict)
+        typer.echo(f"  {'#' * int(heading['level'])} {heading['text']}")
+    typer.echo("Siblings:")
+    for sibling in siblings:
+        assert isinstance(sibling, dict)
+        typer.echo(f"  {sibling['path']}  {sibling['title']}")
+    typer.echo("Linked:")
+    for path in linked:
+        typer.echo(f"  {path}")
 
 
 def main() -> None:

@@ -182,6 +182,50 @@ class DocumentCandidate(BaseModel):
     collection: str
 
 
+class SearchHit(BaseModel):
+    """A ranked full-text search result for a chunk.
+
+    Produced by :meth:`IndexKernel.search` from the FTS5 ``chunks_fts``
+    table joined back to the source ``chunks`` rows for line numbers.
+    ``score`` is the negated FTS5 bm25 relevance (higher is better);
+    ``snippet`` is an FTS5-generated excerpt with ``[`` / ``]`` markers
+    around matched terms.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    chunk_id: str
+    document_id: str
+    title: str
+    relative_path: str
+    heading_path: tuple[str, ...] = Field(default_factory=tuple)
+    start_line: int = Field(ge=1)
+    end_line: int = Field(ge=1)
+    text: str
+    snippet: str
+    score: float
+
+    @field_validator("chunk_id")
+    @classmethod
+    def check_chunk_id(cls, v: str) -> str:
+        if not _CHUNK_ID_RE.fullmatch(v):
+            raise ValueError(f"chunk_id must match {_CHUNK_ID_RE.pattern!r}, got {v!r}")
+        return v
+
+    @field_validator("document_id")
+    @classmethod
+    def check_document_id(cls, v: str) -> str:
+        if not _DOCUMENT_ID_RE.fullmatch(v):
+            raise ValueError(f"document_id must match {_DOCUMENT_ID_RE.pattern!r}, got {v!r}")
+        return v
+
+    @model_validator(mode="after")
+    def check_line_range(self) -> SearchHit:
+        if self.end_line < self.start_line:
+            raise ValueError("end_line must be >= start_line")
+        return self
+
+
 class IndexRunRecord(BaseModel):
     """A persisted index-run record used for status reporting."""
 
@@ -214,3 +258,35 @@ class IndexCounts(BaseModel):
     resolved_link_count: int
     unresolved_link_count: int
     ambiguous_link_count: int
+
+
+class RecentDocument(BaseModel):
+    """A document row ordered by modification time for the ``recent`` command."""
+
+    model_config = ConfigDict(frozen=True)
+
+    document_id: str
+    normalized_path: str
+    title: str
+    collection: str
+    mtime_ns: int = Field(ge=0)
+
+
+class IncomingLink(BaseModel):
+    """A wiki link that points at a document, with its source document path."""
+
+    model_config = ConfigDict(frozen=True)
+
+    source_document_id: str
+    source_path: str
+    source_line: int = Field(ge=1)
+    raw_target: str
+    target_slug: str
+    resolution_state: str = "unresolved"
+
+    @field_validator("resolution_state")
+    @classmethod
+    def check_resolution_state(cls, v: str) -> str:
+        if v not in _RESOLUTION_STATES:
+            raise ValueError(f"resolution_state must be one of {_RESOLUTION_STATES}, got {v!r}")
+        return v

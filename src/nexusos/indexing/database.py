@@ -22,18 +22,22 @@ from nexusos.core.errors import (
     DatabaseError,
     IndexEntryExistsError,
     IndexEntryNotFoundError,
+    IndexingError,
     IndexTransactionError,
 )
 from nexusos.indexing.ids import run_id
 from nexusos.indexing.migrations import migrate
 from nexusos.indexing.models import (
     DocumentCandidate,
+    IncomingLink,
     IndexCounts,
     IndexedChunk,
     IndexedDocument,
     IndexedHeading,
     IndexedLink,
     IndexRunRecord,
+    RecentDocument,
+    SearchHit,
 )
 
 
@@ -257,79 +261,7 @@ class IndexDatabase:
         row = self._fetchone("SELECT * FROM documents WHERE relative_path = ?", (relative_path,))
         if row is None:
             return None
-        document_id = _as_str(row, "document_id")
-        headings = [
-            IndexedHeading(
-                ordinal=_as_int(h, "ordinal"),
-                level=_as_int(h, "level"),
-                text=_as_str(h, "text"),
-                normalized_text=_as_str(h, "normalized_text"),
-                line=_as_int(h, "line"),
-                heading_path=tuple(json.loads(_as_str(h, "heading_path_json"))),
-            )
-            for h in self._fetchall(
-                "SELECT * FROM headings WHERE document_id = ? ORDER BY ordinal",
-                (document_id,),
-            )
-        ]
-        chunks = [
-            IndexedChunk(
-                chunk_id=_as_str(c, "chunk_id"),
-                document_id=_as_str(c, "document_id"),
-                ordinal=_as_int(c, "ordinal"),
-                heading_path=tuple(json.loads(_as_str(c, "heading_path_json"))),
-                start_line=_as_int(c, "start_line"),
-                end_line=_as_int(c, "end_line"),
-                text=_as_str(c, "text"),
-                content_sha256=_as_str(c, "content_sha256"),
-            )
-            for c in self._fetchall(
-                "SELECT * FROM chunks WHERE document_id = ? ORDER BY ordinal", (document_id,)
-            )
-        ]
-        wikilinks = [
-            IndexedLink(
-                source_line=_as_int(link_row, "source_line"),
-                raw_target=_as_str(link_row, "raw_target"),
-                target_slug=_as_str(link_row, "target_slug"),
-                target_heading=_as_optional_str(link_row, "target_heading"),
-                label=_as_optional_str(link_row, "label"),
-                target_document_id=_as_optional_str(link_row, "target_document_id"),
-                resolved=bool(_as_int(link_row, "resolved")),
-                resolution_state=_as_str(link_row, "resolution_state"),
-            )
-            for link_row in self._fetchall(
-                "SELECT * FROM links WHERE source_document_id = ? ORDER BY source_line, link_id",
-                (document_id,),
-            )
-        ]
-        tags_row = self._fetchone(
-            "SELECT tags FROM chunks_fts WHERE document_id = ? ORDER BY rowid LIMIT 1",
-            (document_id,),
-        )
-        tags = [] if tags_row is None else [t for t in str(tags_row["tags"]).split() if t]
-        return IndexedDocument(
-            document_id=document_id,
-            relative_path=_as_str(row, "relative_path"),
-            normalized_path=_as_str(row, "normalized_path"),
-            collection=_as_str(row, "collection"),
-            title=_as_str(row, "title"),
-            file_type=_as_str(row, "file_type"),
-            authority_class=_as_str(row, "authority_class"),
-            created_at=_as_optional_str(row, "created_at"),
-            updated_at=_as_optional_str(row, "updated_at"),
-            mtime_ns=_as_int(row, "mtime_ns"),
-            size_bytes=_as_int(row, "size_bytes"),
-            content_sha256=_as_str(row, "content_sha256"),
-            frontmatter_json=_as_str(row, "frontmatter_json"),
-            indexed_at=_as_str(row, "indexed_at"),
-            line_count=_as_int(row, "line_count"),
-            parse_warning_count=_as_int(row, "parse_warning_count"),
-            headings=headings,
-            chunks=chunks,
-            wikilinks=wikilinks,
-            tags=tags,
-        )
+        return self._assemble_document(_as_str(row, "document_id"))
 
     def get_candidate_by_normalized_path(self, normalized_path: str) -> DocumentCandidate | None:
         """Return a document candidate for an exact normalized-path match."""
@@ -387,6 +319,61 @@ class IndexDatabase:
                 "SELECT COUNT(*) FROM links WHERE resolution_state = 'ambiguous'"
             ),
         )
+
+    # -- search ---------------------------------------------------------------
+
+    def search_chunks(
+        self,
+        query: str,
+        *,
+        limit: int,
+        snippet_tokens: int,
+    ) -> list[SearchHit]:
+        """Run an FTS5 full-text search and return ranked chunk hits.
+
+        ``query`` must be a safe FTS5 MATCH expression (see
+        :func:`nexusos.indexing.search.build_fts_query`). Results are
+        ordered by FTS5 bm25 relevance (best first), then source line and
+        chunk id for determinism. ``snippet_tokens`` is passed to the FTS5
+        ``snippet()`` helper as its max-tokens argument.
+        """
+        conn = self._require_open()
+        try:
+            cursor = conn.execute(
+                "SELECT "
+                "  chunks_fts.chunk_id, chunks_fts.document_id, chunks_fts.title, "
+                "  chunks_fts.relative_path, chunks_fts.heading_path, "
+                "  c.start_line, c.end_line, chunks_fts.text, "
+                "  snippet(chunks_fts, 5, '[', ']', ' … ', ?) AS snippet_text, "
+                "  -bm25(chunks_fts) AS score "
+                "FROM chunks_fts "
+                "JOIN chunks c ON c.chunk_id = chunks_fts.chunk_id "
+                "WHERE chunks_fts MATCH ? "
+                "ORDER BY bm25(chunks_fts) ASC, c.start_line ASC, c.chunk_id ASC "
+                "LIMIT ?",
+                (snippet_tokens, query, limit),
+            )
+            rows = list(cursor.fetchall())
+        except sqlite3.OperationalError as exc:
+            # A malformed MATCH expression is a query error, not corruption.
+            raise IndexingError(f"invalid search query: {exc}", exit_code=2)
+        except sqlite3.DatabaseError as exc:
+            raise CorruptDatabaseError(f"index database error: {exc}")
+        return [
+            SearchHit(
+                chunk_id=_as_str(r, "chunk_id"),
+                document_id=_as_str(r, "document_id"),
+                title=_as_str(r, "title"),
+                relative_path=_as_str(r, "relative_path"),
+                heading_path=tuple(json.loads(_as_str(r, "heading_path"))),
+                start_line=_as_int(r, "start_line"),
+                end_line=_as_int(r, "end_line"),
+                text=_as_str(r, "text"),
+                snippet=_as_str(r, "snippet_text"),
+                score=float(r["score"]),
+            )
+            for r in rows
+        ]
 
     # -- runs -----------------------------------------------------------------
 
@@ -455,6 +442,152 @@ class IndexDatabase:
             error_count=_as_int(row, "error_count"),
             success=bool(_as_int(row, "success")),
             error_summary=_as_optional_str(row, "error_summary"),
+        )
+
+    # -- navigation queries (read-only, for browse/read/recent/links/context) ---
+
+    def get_document_by_id(self, document_id: str) -> IndexedDocument | None:
+        """Return the full stored document (including derived rows), or None.
+
+        Lookup is by deterministic ``document_id`` rather than by relative
+        path, so content-navigation commands can address a document even when
+        the caller only knows its stable identifier.
+        """
+        self._require_open()
+        row = self._fetchone("SELECT * FROM documents WHERE document_id = ?", (document_id,))
+        if row is None:
+            return None
+        return self._assemble_document(_as_str(row, "document_id"))
+
+    def list_recent(self, limit: int) -> list[RecentDocument]:
+        """Return the ``limit`` most recently modified documents.
+
+        Ordering is by ``mtime_ns`` descending with ``normalized_path`` as a
+        deterministic tie-breaker, matching the ``recent`` command contract.
+        """
+        self._require_open()
+        rows = self._fetchall(
+            "SELECT document_id, normalized_path, title, collection, mtime_ns "
+            "FROM documents ORDER BY mtime_ns DESC, normalized_path ASC LIMIT ?",
+            (limit,),
+        )
+        return [
+            RecentDocument(
+                document_id=_as_str(r, "document_id"),
+                normalized_path=_as_str(r, "normalized_path"),
+                title=_as_str(r, "title"),
+                collection=_as_str(r, "collection"),
+                mtime_ns=_as_int(r, "mtime_ns"),
+            )
+            for r in rows
+        ]
+
+    def list_incoming_links(self, document_id: str) -> list[IncomingLink]:
+        """Return links that point at ``document_id``, with their source paths.
+
+        Ordered by source path then source line for deterministic output.
+        """
+        self._require_open()
+        rows = self._fetchall(
+            "SELECT d.document_id AS source_document_id, "
+            "d.normalized_path AS source_path, l.source_line, l.raw_target, "
+            "l.target_slug, l.resolution_state "
+            "FROM links l "
+            "JOIN documents d ON d.document_id = l.source_document_id "
+            "WHERE l.target_document_id = ? "
+            "ORDER BY d.normalized_path ASC, l.source_line ASC",
+            (document_id,),
+        )
+        return [
+            IncomingLink(
+                source_document_id=_as_str(r, "source_document_id"),
+                source_path=_as_str(r, "source_path"),
+                source_line=_as_int(r, "source_line"),
+                raw_target=_as_str(r, "raw_target"),
+                target_slug=_as_str(r, "target_slug"),
+                resolution_state=_as_str(r, "resolution_state"),
+            )
+            for r in rows
+        ]
+
+    def _assemble_document(self, document_id: str) -> IndexedDocument:
+        """Assemble a full stored document from a known ``document_id``.
+
+        Shared by :meth:`get_document` and :meth:`get_document_by_id`.
+        """
+        row = self._fetchone("SELECT * FROM documents WHERE document_id = ?", (document_id,))
+        assert row is not None, "document_id must exist when assembling"
+        headings = [
+            IndexedHeading(
+                ordinal=_as_int(h, "ordinal"),
+                level=_as_int(h, "level"),
+                text=_as_str(h, "text"),
+                normalized_text=_as_str(h, "normalized_text"),
+                line=_as_int(h, "line"),
+                heading_path=tuple(json.loads(_as_str(h, "heading_path_json"))),
+            )
+            for h in self._fetchall(
+                "SELECT * FROM headings WHERE document_id = ? ORDER BY ordinal",
+                (document_id,),
+            )
+        ]
+        chunks = [
+            IndexedChunk(
+                chunk_id=_as_str(c, "chunk_id"),
+                document_id=_as_str(c, "document_id"),
+                ordinal=_as_int(c, "ordinal"),
+                heading_path=tuple(json.loads(_as_str(c, "heading_path_json"))),
+                start_line=_as_int(c, "start_line"),
+                end_line=_as_int(c, "end_line"),
+                text=_as_str(c, "text"),
+                content_sha256=_as_str(c, "content_sha256"),
+            )
+            for c in self._fetchall(
+                "SELECT * FROM chunks WHERE document_id = ? ORDER BY ordinal", (document_id,)
+            )
+        ]
+        wikilinks = [
+            IndexedLink(
+                source_line=_as_int(link_row, "source_line"),
+                raw_target=_as_str(link_row, "raw_target"),
+                target_slug=_as_str(link_row, "target_slug"),
+                target_heading=_as_optional_str(link_row, "target_heading"),
+                label=_as_optional_str(link_row, "label"),
+                target_document_id=_as_optional_str(link_row, "target_document_id"),
+                resolved=bool(_as_int(link_row, "resolved")),
+                resolution_state=_as_str(link_row, "resolution_state"),
+            )
+            for link_row in self._fetchall(
+                "SELECT * FROM links WHERE source_document_id = ? ORDER BY source_line, link_id",
+                (document_id,),
+            )
+        ]
+        tags_row = self._fetchone(
+            "SELECT tags FROM chunks_fts WHERE document_id = ? ORDER BY rowid LIMIT 1",
+            (document_id,),
+        )
+        tags = [] if tags_row is None else [t for t in str(tags_row["tags"]).split() if t]
+        return IndexedDocument(
+            document_id=_as_str(row, "document_id"),
+            relative_path=_as_str(row, "relative_path"),
+            normalized_path=_as_str(row, "normalized_path"),
+            collection=_as_str(row, "collection"),
+            title=_as_str(row, "title"),
+            file_type=_as_str(row, "file_type"),
+            authority_class=_as_str(row, "authority_class"),
+            created_at=_as_optional_str(row, "created_at"),
+            updated_at=_as_optional_str(row, "updated_at"),
+            mtime_ns=_as_int(row, "mtime_ns"),
+            size_bytes=_as_int(row, "size_bytes"),
+            content_sha256=_as_str(row, "content_sha256"),
+            frontmatter_json=_as_str(row, "frontmatter_json"),
+            indexed_at=_as_str(row, "indexed_at"),
+            line_count=_as_int(row, "line_count"),
+            parse_warning_count=_as_int(row, "parse_warning_count"),
+            headings=headings,
+            chunks=chunks,
+            wikilinks=wikilinks,
+            tags=tags,
         )
 
     # -- private row helpers --------------------------------------------------

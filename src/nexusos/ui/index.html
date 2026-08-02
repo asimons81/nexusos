@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NexusOS Kernel Data</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    margin: 0; padding: 2rem; line-height: 1.5;
+    background: #fafafa; color: #1a1a1a;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #16181d; color: #e6e6e6; }
+    table tr:nth-child(even) { background: #1e2128; }
+    a { color: #7cb8ff; }
+  }
+  h1 { font-size: 1.4rem; }
+  h2 { font-size: 1.1rem; margin-top: 2rem; border-bottom: 1px solid #8883; padding-bottom: .3rem; }
+  table { border-collapse: collapse; width: 100%; margin-top: .5rem; }
+  th, td { text-align: left; padding: .35rem .6rem; border: 1px solid #8883; vertical-align: top; }
+  th { font-weight: 600; }
+  .ok { color: #1a7f37; }
+  .err { color: #c62828; }
+  code { background: #8882; padding: .1rem .3rem; border-radius: 4px; }
+  .endpoints { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .5rem; }
+  .endpoint { padding: .4rem .6rem; background: #8882; border-radius: 6px; }
+  pre { max-height: 24rem; overflow: auto; background: #8881; padding: .8rem; border-radius: 6px; }
+</style>
+</head>
+<body>
+  <h1>NexusOS Kernel Data</h1>
+  <p>Read-only developer view of the workspace index. Data is served from
+     <code>.nexusos/index.sqlite3</code>; nothing here mutates source files.</p>
+
+  <h2>Status</h2>
+  <div id="status">Loading…</div>
+
+  <h2>Counts</h2>
+  <div id="counts">Loading…</div>
+
+  <h2>Documents</h2>
+  <table id="documents">
+    <thead><tr><th>Relative path</th><th>Title</th><th>Collection</th><th>Size</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>Endpoints</h2>
+  <div class="endpoints">
+    <div class="endpoint"><a href="/healthz">/healthz</a></div>
+    <div class="endpoint"><a href="/api/status">/api/status</a></div>
+    <div class="endpoint"><a href="/api/meta">/api/meta</a></div>
+    <div class="endpoint"><a href="/api/counts">/api/counts</a></div>
+    <div class="endpoint"><a href="/api/documents">/api/documents</a></div>
+    <div class="endpoint"><a href="/api/runs">/api/runs</a></div>
+  </div>
+
+<script>
+async function getJSON(url) {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(url + " -> HTTP " + resp.status);
+  return resp.json();
+}
+
+function el(tag, text) {
+  const node = document.createElement(tag);
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+(async () => {
+  const statusEl = document.getElementById("status");
+  try {
+    const s = await getJSON("/api/status");
+    statusEl.textContent = "";
+    statusEl.appendChild(el("span", "status: "));
+    const badge = el("strong", s.status);
+    badge.className = s.status === "ready" ? "ok" : "err";
+    statusEl.appendChild(badge);
+    statusEl.appendChild(el("span", " · workspace: " + (s.workspace_id || "none")));
+    statusEl.appendChild(el("span", " · stale: " + s.stale));
+    if (s.stale_reasons && s.stale_reasons.length) {
+      statusEl.appendChild(el("br"));
+      statusEl.appendChild(el("span", "reasons: " + s.stale_reasons.join(", ")));
+    }
+  } catch (err) {
+    statusEl.textContent = String(err);
+  }
+
+  const countsEl = document.getElementById("counts");
+  try {
+    const c = await getJSON("/api/counts");
+    countsEl.textContent = "";
+    for (const key of ["document_count", "chunk_count", "heading_count",
+                       "resolved_link_count", "unresolved_link_count", "ambiguous_link_count"]) {
+      countsEl.appendChild(el("span", key + ": "));
+      countsEl.appendChild(el("strong", String(c[key] ?? 0)));
+      countsEl.appendChild(el("span", "  "));
+    }
+  } catch (err) {
+    countsEl.textContent = String(err);
+  }
+
+  const tbody = document.querySelector("#documents tbody");
+  try {
+    const docs = await getJSON("/api/documents");
+    for (const doc of docs) {
+      const row = document.createElement("tr");
+      const pathCell = el("td");
+      const link = document.createElement("a");
+      link.href = "/api/documents/" + encodeURIComponent(doc.normalized_path);
+      link.textContent = doc.normalized_path;
+      pathCell.appendChild(link);
+      row.appendChild(pathCell);
+      row.appendChild(el("td", doc.title));
+      row.appendChild(el("td", doc.collection));
+      row.appendChild(el("td", String(doc.size_bytes)));
+      tbody.appendChild(row);
+    }
+  } catch (err) {
+    const row = document.createElement("tr");
+    const cell = el("td", String(err));
+    cell.colSpan = 4;
+    row.appendChild(cell);
+    tbody.appendChild(row);
+  }
+})();
+</script>
+</body>
+</html>

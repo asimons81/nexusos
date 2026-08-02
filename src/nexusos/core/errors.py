@@ -117,3 +117,18 @@ class IndexLockError(IndexingError):
 
 class IndexLockConflictError(IndexLockError):
     """The index lock is held by another live process."""
+
+
+# --- Navigation errors (added for Phase 3 content-navigation commands) ---
+
+
+class NavigationError(NexusOSError):
+    """Base error for content-navigation operations (defaults to exit 1)."""
+
+
+class DocumentNotFoundError(NavigationError):
+    """No document matches the requested item."""
+
+
+class AmbiguousDocumentError(NavigationError):
+    """Multiple documents match the requested item; a unique path is required."""

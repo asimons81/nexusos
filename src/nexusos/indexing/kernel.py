@@ -1,10 +1,11 @@
-"""The NexusOS indexing kernel: add, update, remove, and candidate lookup.
+"""The NexusOS indexing kernel: add, update, remove, search, and candidate lookup.
 
 ``IndexKernel`` is the internal API the Phase 2 indexing pipeline builds on.
 It composes the workspace-bound SQLite database, deterministic identifiers,
-workspace-identity binding, path safety, index-run records, and the
-exclusive-writer lock. It deliberately does NOT implement search, evidence
-packets, graph queries, or any public CLI surface.
+workspace-identity binding, path safety, index-run records, the
+exclusive-writer lock, and FTS5-backed full-text search. It deliberately
+does NOT implement evidence packets, graph queries, or any public CLI
+surface.
 """
 
 from __future__ import annotations
@@ -28,11 +29,15 @@ from nexusos.indexing.ids import document_id
 from nexusos.indexing.lock import IndexLock
 from nexusos.indexing.models import (
     DocumentCandidate,
+    IncomingLink,
     IndexCounts,
     IndexedDocument,
     IndexRunRecord,
+    RecentDocument,
+    SearchHit,
 )
 from nexusos.indexing.schema import SCHEMA_VERSION
+from nexusos.indexing.search import build_fts_query
 from nexusos.workspace.init import load_workspace_identity
 
 T = TypeVar("T")
@@ -226,9 +231,62 @@ class IndexKernel:
         self._require_open()
         return self._db.counts()
 
+    # -- search ---------------------------------------------------------------
+
+    def search(
+        self,
+        term: str,
+        *,
+        limit: int = 50,
+        snippet_tokens: int = 200,
+    ) -> list[SearchHit]:
+        """Run a ranked full-text search over the indexed corpus.
+
+        ``term`` is a plain user query; it is translated into a safe FTS5
+        MATCH expression (prefix matching on every word, case-insensitive).
+        Results are ordered by relevance (best first) with deterministic
+        tie-breaking, and carry the source file path, line numbers, and an
+        excerpt with highlight markers.
+
+        Raises:
+            IndexingError: if ``term`` is empty or the query is malformed.
+        """
+        self._require_open()
+        stripped = term.strip()
+        if not stripped:
+            raise IndexingError("search term must not be empty", exit_code=2)
+        query = build_fts_query(stripped)
+        return self._db.search_chunks(
+            query,
+            limit=limit,
+            snippet_tokens=snippet_tokens,
+        )
+
     def get_meta(self, key: str) -> str | None:
         self._require_open()
         return self._db.get_meta(key)
+
+    # -- content navigation (read-only lookups) -------------------------------
+
+    def list_documents(self) -> list[DocumentCandidate]:
+        """Return all document candidates in deterministic order."""
+        self._require_open()
+        return self._db.list_documents()
+
+    def get_document_by_id(self, document_id: str) -> IndexedDocument | None:
+        """Return a full document by its deterministic identifier, or None."""
+        self._require_open()
+        return self._db.get_document_by_id(document_id)
+
+    def recent_documents(self, limit: int) -> list[RecentDocument]:
+        """Return the ``limit`` most recently modified documents."""
+        self._require_open()
+        return self._db.list_recent(limit)
+
+    def incoming_links(self, document_id: str) -> list[IncomingLink]:
+        """Return links pointing at ``document_id`` with their source paths."""
+        self._require_open()
+        return self._db.list_incoming_links(document_id)
 
     def set_meta(self, key: str, value: str) -> None:
         self._require_open()

@@ -46,6 +46,7 @@ packages = ["src/nexusos"]
 [tool.hatch.build.targets.sdist]
 include = [
     "src/nexusos/**/*.py",
+    "src/nexusos/ui/**",
     "README.md",
     "LICENSE",
     "CHANGELOG.md",
