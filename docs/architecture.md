@@ -43,8 +43,6 @@ SQLite FTS5 only. Results are reproducible and source-cited. No LLM in the retri
 
 ## Not Yet Implemented
 
-- File discovery and parsing pipeline (frontmatter, headings, chunking, wikilinks) — the `indexing/` kernel that persists those results is implemented; the pipeline that produces them is not
-- Search, browse, read, recent, links, context
 - MCP server (stdio and Streamable HTTP)
-- Linting and staleness detection
+- Linting and staleness detection for workspace vaults (the `lint` command runs the project's own dev tooling; a vault linter is a future product feature)
 - Embeddings or vector database

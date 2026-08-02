@@ -32,12 +32,12 @@
 
 ## v0.1.0-alpha.3 — Search & Retrieval
 
-- `nexusos search` with line-aware excerpts
-- `nexusos browse` for collection and document metadata
-- `nexusos read` with bounded section reading
-- `nexusos recent` for recently modified documents
-- `nexusos links` for wiki-link graph inspection
-- `nexusos context` for deterministic evidence packets
+- [x] `nexusos search` with line-aware excerpts (SQLite FTS5, bm25-ranked, prefix matching, `--json`)
+- [x] `nexusos browse` for collection and document metadata
+- [x] `nexusos read` with bounded section reading
+- [x] `nexusos recent` for recently modified documents
+- [x] `nexusos links` for wiki-link graph inspection
+- [x] `nexusos context` for deterministic evidence packets
 
 ## v0.1.0-alpha.4 — Linting & MCP
 

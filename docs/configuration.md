@@ -61,4 +61,4 @@ nexusos config show --json           # JSON output
 
 ## Not Yet Implemented
 
-The `[search]`, `[server]`, and `[lint]` configuration keys exist in the model but are inert until the search, server, and linting phases complete. The indexing location is live: `index_path` (default `.nexusos/index.sqlite3`) is used by the internal indexing kernel, which validates the path stays inside the workspace.
+The `[server]` and `[lint]` configuration keys exist in the model but are inert until the server and linting phases complete. The indexing and search keys are live: `index_path` (default `.nexusos/index.sqlite3`) is used by the internal indexing kernel, which validates the path stays inside the workspace; `search.max_results` and `search.snippet_length` drive the `nexusos search` command (`--limit` overrides `max_results` on the CLI).

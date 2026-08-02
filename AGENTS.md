@@ -43,7 +43,7 @@ Core must not import Typer, Rich, or MCP packages. Indexing must not import CLI 
 
 ## Current Phase
 
-**Phase 0 + Phase 1 complete; Phase 2 kernel core only.** The internal `indexing/` kernel is implemented (deterministic workspace-scoped IDs, SQLite schema v1 with FTS5 preparation rows, explicit migrations, transactional persistence, exclusive-writer lock, `IndexKernel` API). File discovery, parsing, chunking, the `index`/`status` commands, search, MCP, embeddings, connectors, cloud, and source mutation are not yet implemented. Do not add placeholder commands that falsely claim these features work.
+**Phase 0 + Phase 1 complete; Phase 2 kernel + CLI core done.** The internal `indexing/` kernel is implemented (deterministic workspace-scoped IDs, SQLite schema v1 with FTS5, explicit migrations, transactional persistence, exclusive-writer lock, `IndexKernel` API) and the CLI exposes `index`, `status`, `search`, `browse`, `read`, `recent`, `links`, `context`, `lint`, `serve`, and `demo`. Search is SQLite FTS5 only (bm25-ranked, prefix matching, line-aware excerpts, read-only). MCP, embeddings, connectors, cloud, and source mutation are not yet implemented. Do not add placeholder commands that falsely claim these features work.
 
 ## Build Verification
 
