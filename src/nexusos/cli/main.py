@@ -33,6 +33,7 @@ from nexusos.services.navigation_service import (
     read_document,
     recent_documents,
 )
+from nexusos.services.search_service import SearchReport, search_workspace
 from nexusos.services.serve_service import create_server
 from nexusos.services.status_service import get_status
 from nexusos.workspace.init import init_workspace
@@ -290,10 +291,53 @@ def _print_status(data: dict[str, object]) -> None:
 
 
 @app.command()
-def search() -> None:
-    """Search the index (not yet implemented)."""
-    typer.echo("Search is not yet implemented in this version.", err=True)
-    raise typer.Exit(code=1)
+def search(
+    term: str = typer.Argument(..., help="Search term (prefix matching, case-insensitive)"),
+    workspace: Path | None = typer.Option(None, "--workspace", "-w", help="Path to workspace root"),
+    limit: int | None = typer.Option(
+        None, "--limit", "-n", help="Maximum results (default from config)"
+    ),
+    use_json: bool = typer.Option(False, "--json", help="Output in JSON format"),
+) -> None:
+    """Search the index and show ranked, line-aware results."""
+    ws_root = _resolve_workspace(workspace)
+
+    # Honor [search] config defaults; CLI flags override them.
+    try:
+        config = load_config_effective(ws_root)
+    except NexusOSError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=exc.exit_code)
+
+    try:
+        report = search_workspace(
+            ws_root,
+            term,
+            limit=limit if limit is not None else config.search_max_results,
+            snippet_tokens=config.search_snippet_length,
+        )
+    except NexusOSError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=exc.exit_code)
+
+    if use_json:
+        typer.echo(json.dumps(report.to_dict(), indent=2, default=str))
+    else:
+        _print_search_results(report)
+
+
+def _print_search_results(report: SearchReport) -> None:
+    """Print human-readable search results."""
+    typer.echo(f"Search: {report.query}")
+    typer.echo(f"Results: {report.total}")
+    for index, hit in enumerate(report.results, start=1):
+        heading = " > ".join(hit.heading_path) if hit.heading_path else hit.title
+        typer.echo("")
+        typer.echo(f"  {index}. {hit.relative_path}:{hit.start_line}-{hit.end_line}")
+        typer.echo(f"      {heading}")
+        typer.echo(f"      {hit.snippet}")
+    if not report.results:
+        typer.echo("No results found.")
 
 
 def _resolve_workspace(workspace: Path | None) -> Path:
