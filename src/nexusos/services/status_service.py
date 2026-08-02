@@ -130,13 +130,25 @@ def get_status(workspace_root: Path) -> dict[str, Any]:
 
         # Lightweight discovery to check for changes
         discovery = scan_workspace(workspace_root, config)
-        existing_docs = kernel._db.list_documents()
+        existing_sigs = {s.normalized_path: s for s in kernel.list_document_signatures()}
 
-        existing_norm = {c.normalized_path for c in existing_docs}
+        existing_norm = set(existing_sigs.keys())
         current_norm = {f.normalized_path for f in discovery.files}
 
         if current_norm != existing_norm:
             stale_reasons.append("source files changed (additions, deletions)")
+        else:
+            # Content-only edits keep the path set identical. Compare the
+            # discovered mtime/size against the stored signature, mirroring
+            # the indexer's fast-path change detection, so an in-place edit
+            # is reported stale.
+            for f in discovery.files:
+                sig = existing_sigs.get(f.normalized_path)
+                if sig is not None and (
+                    sig.mtime_ns != f.mtime_ns or sig.size_bytes != f.size_bytes
+                ):
+                    stale_reasons.append("source files changed")
+                    break
 
         counts = kernel.counts()
 

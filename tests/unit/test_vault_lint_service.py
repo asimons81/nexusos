@@ -147,6 +147,30 @@ def test_stale_index_clear_after_indexing(tmp_path: Path, monkeypatch: pytest.Mo
     assert check.status == "pass"
 
 
+def test_stale_index_detects_content_only_edit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Regression (defect t_a4b8d50b): an in-place content edit must make the
+    # stale-index check fail even though the path set is unchanged.
+    from nexusos.services.index_service import index_workspace
+
+    monkeypatch.delenv("NEXUSOS_DENY_PATHS", raising=False)
+    ws = _workspace(tmp_path)
+    _write(ws, "wiki/alpha.md", "# Alpha\n\nOriginal body.\n")
+    run = index_workspace(ws, full=True)
+    assert run.success
+
+    first = run_vault_lint(ws)
+    assert _check(first, CHECK_STALE_INDEX).status == "pass"
+
+    _write(ws, "wiki/alpha.md", "# Alpha\n\nRewritten body with different length.\n")
+    report = run_vault_lint(ws)
+    check = _check(report, CHECK_STALE_INDEX)
+
+    assert check.status == "fail"
+    assert any("source files changed" in f.message for f in check.findings)
+
+
 def test_oversized_file_detected(tmp_path: Path) -> None:
     ws = _workspace(tmp_path)
     _write(ws, "wiki/big.md", "# Big\n\n" + ("x" * 200))

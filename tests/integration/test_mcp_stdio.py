@@ -50,7 +50,10 @@ def _make_indexed_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
 
     run = index_workspace(ws, full=True)
     assert run.success
-    assert run.files_seen == len(_FILES)
+    # Blank template ships a root README.md; with the **/*.md fix it is
+    # discovered and indexed alongside the corpus (previously root files
+    # were silently skipped).
+    assert run.files_seen == len(_FILES) + 1
     return ws
 
 
@@ -160,9 +163,9 @@ def test_browse_tool_returns_valid_json(tmp_path: Path, monkeypatch: pytest.Monk
     data = asyncio.run(_call_browse(ws))
     assert not _is_error(data["result"])
     payload = json.loads(_text_content(data["result"]))
-    assert payload["count"] == 3
+    assert payload["count"] == 4
     paths = {doc["path"] for doc in payload["documents"]}
-    assert paths == set(_FILES)
+    assert paths == set(_FILES) | {"README.md"}
 
 
 def test_read_tool_returns_content(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -192,7 +195,7 @@ def test_recent_tool_returns_valid_json(tmp_path: Path, monkeypatch: pytest.Monk
     data = asyncio.run(_call_recent(ws))
     assert not _is_error(data["result"])
     payload = json.loads(_text_content(data["result"]))
-    assert payload["count"] == 3
+    assert payload["count"] == 4
 
 
 def test_links_tool_returns_valid_json(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -236,11 +239,11 @@ def test_index_tool_indexes_sample_corpus(tmp_path: Path, monkeypatch: pytest.Mo
     assert not _is_error(data["result"])
     payload = json.loads(_text_content(data["result"]))
     assert payload["success"] is True
-    assert payload["files_seen"] == len(_FILES)
-    assert payload["files_added"] == len(_FILES)
+    assert payload["files_seen"] == len(_FILES) + 1  # corpus + root README.md
+    assert payload["files_added"] == len(_FILES) + 1
     structured = _structured(data["result"])
     assert structured is not None
-    assert structured["files_seen"] == len(_FILES)
+    assert structured["files_seen"] == len(_FILES) + 1
 
     # After indexing, search finds the corpus.
     search_data = asyncio.run(_call_search(ws, "kernel"))
@@ -260,7 +263,7 @@ def test_index_tool_dry_run_creates_no_db(tmp_path: Path, monkeypatch: pytest.Mo
     assert not _is_error(data["result"])
     payload = json.loads(_text_content(data["result"]))
     assert payload["success"] is True
-    assert payload["files_seen"] == 1
+    assert payload["files_seen"] == 2  # wiki/a.md + root README.md
     assert not (ws / ".nexusos" / "index.sqlite3").exists()
 
 

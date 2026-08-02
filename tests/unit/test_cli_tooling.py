@@ -291,7 +291,10 @@ def test_serve_document_lookup_and_counts(tmp_path: Path, monkeypatch: pytest.Mo
         status, body = _http_get(f"{harness.base_url}/api/counts")
         assert status == 200
         counts = json.loads(body)
-        assert counts["document_count"] == 2
+        # Starter template ships root README.md + SCHEMA.md; the **/*.md fix
+        # now discovers and indexes them alongside the two wiki docs
+        # (previously root files were silently skipped).
+        assert counts["document_count"] == 4
         status2, body2 = _http_get(f"{harness.base_url}/api/documents/wiki/concepts/agents.md")
         assert status2 == 200
         doc = json.loads(body2)

@@ -18,6 +18,14 @@ class TestCompilePatterns:
         assert rx[0].match("dir/file.md")
         assert not rx[0].match("dir/file.txt")
 
+    def test_doublestar_matches_root_files(self) -> None:
+        # Regression: ``**/`` must match zero directories, so the default
+        # ``**/*.md`` include pattern also discovers root-level files.
+        rx = _compile_patterns(["**/*.md"])
+        assert rx[0].match("root-note.md")
+        assert rx[0].match("dir/file.md")
+        assert rx[0].match("a/b/c/file.md")
+
     def test_multiple_globs(self) -> None:
         rx = _compile_patterns(["**/*.md", "**/*.txt"])
         assert len(rx) == 2
@@ -30,6 +38,21 @@ class TestCompilePatterns:
         assert include[0].match("src/main.py")
         assert exclude[0].match("src/__pycache__/main.cpython-312.pyc")
         assert not exclude[0].match("src/main.py")
+
+    def test_globstar_edge_cases(self) -> None:
+        # Lock in gitignore-style globstar semantics for the edge patterns.
+        everything = _compile_patterns(["**"])[0]
+        assert everything.match("root.md")
+        assert everything.match("a/b/c.md")
+
+        under_dir = _compile_patterns(["dir/**"])[0]
+        assert under_dir.match("dir/a.md")
+        assert under_dir.match("dir/sub/b.md")
+        assert not under_dir.match("root.md")
+
+        pycache = _compile_patterns(["**/__pycache__/**"])[0]
+        assert pycache.match("__pycache__/x.py")  # root-level pycache
+        assert pycache.match("a/b/__pycache__/x.py")
 
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "golden"
@@ -52,6 +75,23 @@ class TestScanWorkspace:
             by_coll.setdefault(f.collection, []).append(f)
         assert len(by_coll.get("wiki", [])) >= 4
         assert len(by_coll.get("raw", [])) >= 1
+
+    def test_root_level_file_discovered(self, tmp_path: Path) -> None:
+        # Regression (defect t_a4b8d50b): the default ``**/*.md`` include
+        # pattern must also match files at the workspace root, not only
+        # files nested under at least one directory.
+        from nexusos.core.models import NexusOSConfig
+
+        root = tmp_path / "ws"
+        root.mkdir()
+        (root / "root-note.md").write_text("# Root\n", encoding="utf-8")
+        (root / "wiki").mkdir()
+        (root / "wiki" / "nested.md").write_text("# Nested\n", encoding="utf-8")
+
+        result = scan_workspace(root, NexusOSConfig())
+        paths = {f.normalized_path for f in result.files}
+        assert "root-note.md" in paths
+        assert "wiki/nested.md" in paths
 
     def test_exclude_git(self) -> None:
         git_dir = FIXTURE_ROOT / ".git"

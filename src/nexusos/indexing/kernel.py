@@ -29,6 +29,7 @@ from nexusos.indexing.ids import document_id
 from nexusos.indexing.lock import IndexLock
 from nexusos.indexing.models import (
     DocumentCandidate,
+    DocumentSignature,
     IncomingLink,
     IndexCounts,
     IndexedDocument,
@@ -272,6 +273,15 @@ class IndexKernel:
         """Return all document candidates in deterministic order."""
         self._require_open()
         return self._db.list_documents()
+
+    def list_document_signatures(self) -> list[DocumentSignature]:
+        """Return stored mtime/size signatures for all documents (read-only).
+
+        Used by ``get_status`` and lint stale-index to detect content-only
+        changes without reading derived rows or file content.
+        """
+        self._require_open()
+        return self._db.list_document_signatures()
 
     def get_document_by_id(self, document_id: str) -> IndexedDocument | None:
         """Return a full document by its deterministic identifier, or None."""

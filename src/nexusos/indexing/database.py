@@ -29,6 +29,7 @@ from nexusos.indexing.ids import run_id
 from nexusos.indexing.migrations import migrate
 from nexusos.indexing.models import (
     DocumentCandidate,
+    DocumentSignature,
     IncomingLink,
     IndexCounts,
     IndexedChunk,
@@ -293,6 +294,26 @@ class IndexDatabase:
                 normalized_path=_as_str(r, "normalized_path"),
                 title=_as_str(r, "title"),
                 collection=_as_str(r, "collection"),
+            )
+            for r in rows
+        ]
+
+    def list_document_signatures(self) -> list[DocumentSignature]:
+        """Return stored mtime/size signatures for all documents.
+
+        Lightweight variant of :meth:`list_documents` used by read-only
+        staleness checks; never reads derived rows or file content.
+        """
+        self._require_open()
+        rows = self._fetchall(
+            "SELECT normalized_path, mtime_ns, size_bytes "
+            "FROM documents ORDER BY normalized_path ASC"
+        )
+        return [
+            DocumentSignature(
+                normalized_path=_as_str(r, "normalized_path"),
+                mtime_ns=_as_int(r, "mtime_ns"),
+                size_bytes=_as_int(r, "size_bytes"),
             )
             for r in rows
         ]

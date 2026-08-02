@@ -182,6 +182,21 @@ class DocumentCandidate(BaseModel):
     collection: str
 
 
+class DocumentSignature(BaseModel):
+    """A stored-file fingerprint used for read-only staleness checks.
+
+    Mirrors the indexer's fast-path change detection (mtime + size) so
+    ``get_status`` and lint stale-index agree with what the next index run
+    would update.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    normalized_path: str
+    mtime_ns: int = Field(ge=0)
+    size_bytes: int = Field(ge=0)
+
+
 class SearchHit(BaseModel):
     """A ranked full-text search result for a chunk.
 

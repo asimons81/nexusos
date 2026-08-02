@@ -100,8 +100,10 @@ def test_browse_json(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     result = runner.invoke(app, ["browse", "--workspace", str(ws), "--json"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert data["count"] == 4
-    assert {d["path"] for d in data["documents"]} == set(_FILES.keys())
+    # Blank template ships a root README.md, which the **/*.md fix now
+    # discovers and indexes alongside the corpus (previously skipped).
+    assert data["count"] == 5
+    assert {d["path"] for d in data["documents"]} == set(_FILES.keys()) | {"README.md"}
 
 
 def test_browse_collection_filter(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

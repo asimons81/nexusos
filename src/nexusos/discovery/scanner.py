@@ -16,13 +16,22 @@ from nexusos.discovery.models import DiscoveredFile, DiscoveryResult
 
 
 def _compile_patterns(patterns: list[str]) -> list[re.Pattern[str]]:
-    """Compile glob-like patterns to regex."""
+    """Compile glob-like patterns to regex.
+
+    ``**`` matches across directory boundaries; when followed by a ``/`` it
+    also matches zero directories, so ``**/*.md`` matches both ``a/b.md`` and
+    a root-level ``b.md`` (pathlib.glob / gitignore semantics). ``*`` matches
+    within a single path segment and ``?`` matches one non-slash character.
+    """
     result: list[re.Pattern[str]] = []
     for pat in patterns:
         # Convert glob to regex: ** → .*, * → [^/]*, ? → [^/]
         rx = re.escape(pat)
         rx = rx.replace(r"\*\*", "___DOUBLESTAR___")
         rx = rx.replace(r"\*", "[^/]*")
+        # Globstar followed by a slash matches zero or more directories.
+        rx = rx.replace("___DOUBLESTAR___/", "(?:.*/)?")
+        # A bare globstar (not followed by a slash) matches everything.
         rx = rx.replace("___DOUBLESTAR___", ".*")
         result.append(re.compile("^" + rx + "$"))
     return result

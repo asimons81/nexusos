@@ -166,6 +166,34 @@ def test_browse_lists_all_documents(workspace: Path) -> None:
     assert data["count"] == 3
 
 
+def test_browse_includes_root_level_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Golden regression (defect t_a4b8d50b): a root-level .md file must be
+    # discovered by the default **/*.md include and therefore indexed and
+    # visible through browse, alongside a nested file.
+    from nexusos.services.index_service import index_workspace
+
+    monkeypatch.delenv("NEXUSOS_DENY_PATHS", raising=False)
+    ws = tmp_path / "ws"
+    init_workspace(ws, template="blank")
+    (ws / "root-note.md").write_text("# Root note\n", encoding="utf-8")
+    (ws / "wiki").mkdir(exist_ok=True)
+    (ws / "wiki" / "nested.md").write_text("# Nested note\n", encoding="utf-8")
+
+    run = index_workspace(ws, full=True)
+    assert run.success
+    # Blank template ships a root README.md; with the **/*.md fix all three
+    # root/nested files are discovered and indexed (previously root files
+    # were silently skipped).
+    assert run.files_added == 3
+
+    data = nav.browse_workspace(ws)
+    paths = [d["path"] for d in data["documents"]]
+    assert "root-note.md" in paths
+    assert "wiki/nested.md" in paths
+    assert "README.md" in paths
+    assert data["count"] == 3
+
+
 def test_browse_filters_by_collection(workspace: Path) -> None:
     data = nav.browse_workspace(workspace, collection="wiki")
     paths = [d["path"] for d in data["documents"]]
