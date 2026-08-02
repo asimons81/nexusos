@@ -25,11 +25,14 @@
 - 46 unit + integration tests for search and content navigation (matched terms, no-match, multiple ranked results, prefix/case handling, limits, JSON output, exit codes, read-only invariant)
 - MCP server (`nexusos mcp` / `python -m nexusos.mcp --workspace PATH`): Model Context Protocol over stdio exposing the workspace index as seven tools — `search`, `browse`, `read`, `recent`, `links`, `context`, and `index` (the indexer reuses the existing incremental index pass). Every tool advertises a strict schema (`additionalProperties: false`), returns JSON in both text and structured content, and surfaces service errors as MCP tool errors. `[mcp]` config section (`enabled`, `transport` — stdio only) with a client-connection example
 - 31 unit + integration tests for the MCP server (tool registration, strict schemas, `[mcp]` config, real-subprocess stdio handshake, tool invocation returning valid JSON, missing-document errors, extra-argument rejection, indexing completion over a sample corpus, dry-run read-only guarantee)
+- Workspace vault linter (`nexusos lint --workspace PATH`): read-only battery of checks over a vault's source files and index — broken wiki links, ambiguous links, invalid frontmatter, orphan documents, duplicate slugs, stale index, oversized files, empty documents, symlink escapes, and files outside configured collections. Runs a fresh discovery + parse pass so it works before indexing; warnings do not fail, failures exit 1. `[lint]` config section (`max_file_size_bytes`, `warn_empty_docs`); `--json` output. The plain `nexusos lint` (no `--workspace`) remains the kernel dev-tooling command
+- MCP Streamable HTTP transport: `nexusos serve --transport streamable-http` serves MCP over loopback-only HTTP (default 127.0.0.1:8765, endpoint `/mcp`); `nexusos serve --transport stdio` runs the stdio MCP server; `[mcp] transport = "streamable-http"` is honored by `python -m nexusos.mcp`
+- MCP `status` tool completing the Phase 5 tool list (workspace index status, counts, staleness reasons)
+- 24 new unit/integration/security tests for the vault linter, lint CLI, serve transports, and MCP status tool (full suite: 355 passing)
+- Documentation: docs/mcp.md, docs/linting.md; ROADMAP updated to mark alpha.2/3/4 complete
 
 ### Not yet implemented
 
-- Streamable HTTP / SSE transports for MCP (stdio only today)
-- Vault linting and staleness detection (the `lint` command runs the project's own dev tooling only)
 - Embeddings or vector database
 - Source mutation through MCP
 - Cloud features, OAuth, multi-user

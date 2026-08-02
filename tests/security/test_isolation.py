@@ -115,3 +115,59 @@ def test_no_files_created_outside_workspace(
     ws_str = str(ws.resolve())
     for f in new_files:
         assert f.startswith(ws_str), f"File outside workspace: {f}"
+
+
+def test_lint_does_not_mutate_sources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`nexusos lint --workspace` is read-only: no source file changes."""
+    monkeypatch.delenv("NEXUSOS_DENY_PATHS", raising=False)
+    ws = tmp_path / "ws"
+    init_workspace(ws, template="blank")
+    (ws / "wiki").mkdir()
+    (ws / "wiki" / "alpha.md").write_text("# Alpha\n\nSee [[missing]].\n")
+    (ws / "wiki" / "beta.md").write_text("# Beta\n")
+
+    from nexusos.services.index_service import index_workspace
+    from nexusos.services.vault_lint_service import run_vault_lint
+
+    run = index_workspace(ws, full=True)
+    assert run.success
+
+    def _snapshot(root: Path) -> dict[str, tuple[str, int]]:
+        snap: dict[str, tuple[str, int]] = {}
+        for p in sorted(root.rglob("*")):
+            if p.is_file() and ".nexusos" not in p.parts:
+                snap[str(p.relative_to(root))] = (
+                    p.read_text(encoding="utf-8"),
+                    p.stat().st_mtime_ns,
+                )
+        return snap
+
+    before = _snapshot(ws)
+    report = run_vault_lint(ws)
+    assert report is not None
+    after = _snapshot(ws)
+    assert before == after
+    # Index database is the only allowed derived state.
+    assert (ws / ".nexusos" / "index.sqlite3").is_file()
+
+
+def test_mcp_status_tool_read_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The MCP status tool never creates or mutates the index database."""
+    monkeypatch.delenv("NEXUSOS_DENY_PATHS", raising=False)
+    ws = tmp_path / "ws"
+    init_workspace(ws, template="blank")
+    (ws / "wiki").mkdir()
+    (ws / "wiki" / "alpha.md").write_text("# Alpha\n")
+
+    from nexusos.mcp.server import build_server
+    from nexusos.services.status_service import get_status
+
+    status = get_status(ws)
+    assert status["status"] == "uninitialized"
+    # status must not have created the index DB
+    assert not (ws / ".nexusos" / "index.sqlite3").is_file()
+
+    # Building the server and listing tools is also read-only.
+    server = build_server(ws)
+    assert server is not None
+    assert not (ws / ".nexusos" / "index.sqlite3").is_file()

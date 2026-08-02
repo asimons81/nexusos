@@ -108,7 +108,7 @@ def test_mcp_handshake_succeeds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert info.server_info.name == "nexusos"
     assert info.server_info.version == "0.1.0-alpha.1"
     names = [t.name for t in tools.tools]
-    assert names == ["search", "browse", "read", "recent", "links", "context", "index"]
+    assert names == ["status", "search", "browse", "read", "recent", "links", "context", "index"]
 
 
 async def _run_handshake(workspace: Path) -> tuple[Any, Any]:

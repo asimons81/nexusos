@@ -11,8 +11,11 @@ foundation; the **alpha.2** work adds the indexing kernel (deterministic
 IDs, SQLite schema v1 with FTS5, transactional persistence,
 exclusive-writer lock) plus `index`/`status`. Search and content navigation
 (`search`, `browse`, `read`, `recent`, `links`, `context`) are implemented
-on top of the index, and an MCP server (`nexusos mcp`) exposes them to MCP
-clients over stdio. Embeddings and vector search are not yet available.
+on top of the index, and an MCP server (`nexusos mcp`, plus
+`nexusos serve --transport stdio|streamable-http`) exposes them to MCP
+clients. A workspace vault linter (`nexusos lint --workspace`) detects
+broken links, orphans, duplicate slugs, stale indexes, and more. Embeddings
+and vector search are not yet available.
 
 ## Installation
 
@@ -44,6 +47,9 @@ nexusos recent               # Recently modified documents
 nexusos links ITEM           # Wiki-link graph for a document
 nexusos context ITEM         # Headings, siblings, linked documents
 nexusos mcp                  # Serve the workspace over MCP (stdio)
+nexusos lint --workspace WS  # Lint a workspace vault (broken links, orphans, ...)
+nexusos serve --transport stdio WS           # MCP over stdio
+nexusos serve --transport streamable-http WS # MCP over loopback HTTP (127.0.0.1:8765)
 ```
 
 ## Developer Tooling
@@ -59,9 +65,11 @@ nexusos demo --path DIR      # Create the demo vault at DIR
 nexusos demo --remove        # Delete the demo vault when done
 ```
 
-`lint`, `serve`, and `demo` are developer commands for this repository. They
-operate on the NexusOS kernel source and on synthetic demo data — they are not
-the workspace vault linter, which remains a future product feature.
+`lint` doubles as a developer command for this repository: without
+`--workspace` it runs the kernel's own tooling (ruff + mypy); with
+`--workspace` it is the product vault linter. `serve` and `demo` operate on
+the workspace index and on synthetic demo data. See [docs/linting.md](docs/linting.md)
+and [docs/mcp.md](docs/mcp.md) for details.
 
 ## Workspace Structure
 

@@ -26,7 +26,7 @@ from nexusos.mcp.server import (
     build_server,
 )
 
-EXPECTED_TOOLS = ("search", "browse", "read", "recent", "links", "context", "index")
+EXPECTED_TOOLS = ("status", "search", "browse", "read", "recent", "links", "context", "index")
 
 
 def _server() -> Any:

@@ -21,16 +21,21 @@
 
 ## v0.1.0-alpha.2 — Indexing
 
-**Status: IN PROGRESS** (kernel core done; pipeline + CLI pending)
+**Status: COMPLETE**
 
 - [x] SQLite schema with FTS5 (indexing kernel: deterministic IDs, transactional persistence, exclusive-writer lock, run records)
-- [ ] Markdown and plain-text file discovery
-- [ ] YAML frontmatter parsing
-- [ ] Markdown heading extraction
-- [ ] Incremental reindexing (kernel `add/update/upsert/remove` API ready; discovery/parsing pipeline and CLI pending)
-- [ ] `nexusos index` and `nexusos status` commands
+- [x] Markdown and plain-text file discovery
+- [x] YAML frontmatter parsing
+- [x] Markdown heading extraction
+- [x] Wiki-link extraction and graph resolution
+- [x] Deterministic chunking
+- [x] Incremental reindexing (added/changed/deleted detection, full rebuild)
+- [x] `nexusos index` and `nexusos status` commands
+- [x] Strict configuration validation (unknown TOML sections/keys rejected)
 
 ## v0.1.0-alpha.3 — Search & Retrieval
+
+**Status: COMPLETE**
 
 - [x] `nexusos search` with line-aware excerpts (SQLite FTS5, bm25-ranked, prefix matching, `--json`)
 - [x] `nexusos browse` for collection and document metadata
@@ -41,18 +46,23 @@
 
 ## v0.1.0-alpha.4 — Linting & MCP
 
-- `nexusos lint` with stale/broken detection
-- [x] Read-only MCP server (`nexusos mcp`, stdio)
-- [x] MCP stdio transport with strict tool schemas (search, browse, read, recent, links, context, index)
-- [ ] Loopback-only Streamable HTTP transport
+**Status: COMPLETE**
+
+- [x] `nexusos lint` with stale/broken detection (workspace vault linter: broken links, ambiguous links, invalid frontmatter, orphans, duplicate slugs, stale index, oversized/empty documents, symlink escapes, files outside collections)
+- [x] Read-only MCP server (`nexusos mcp`, `nexusos serve --transport stdio`)
+- [x] MCP stdio transport with strict tool schemas (status, search, browse, read, recent, links, context, index)
+- [x] Loopback-only Streamable HTTP transport (`nexusos serve --transport streamable-http`, default 127.0.0.1:8765)
 - [x] Synthetic demo vault
 
 ## v0.1.0 — Stable Release
 
-- Full test coverage
-- Cross-platform validation
-- Published to PyPI
-- Complete documentation
+**Status: IN PROGRESS**
+
+- [x] Full test coverage
+- [x] Read-only contract verified (source immutability security tests)
+- [ ] Cross-platform validation
+- [ ] Published to PyPI
+- [x] Complete documentation (docs/mcp.md, docs/linting.md)
 
 ## Future
 

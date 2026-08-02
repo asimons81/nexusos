@@ -36,6 +36,10 @@ from nexusos.services.navigation_service import (
 from nexusos.services.search_service import SearchReport, search_workspace
 from nexusos.services.serve_service import create_server
 from nexusos.services.status_service import get_status
+from nexusos.services.vault_lint_service import (
+    print_vault_lint_report,
+    run_vault_lint,
+)
 from nexusos.workspace.init import init_workspace
 
 app = typer.Typer(
@@ -362,13 +366,34 @@ def lint(
     repo: Path | None = typer.Option(
         None, "--repo", help="NexusOS repo root (default: auto-detect)"
     ),
+    workspace: Path | None = typer.Option(
+        None,
+        "--workspace",
+        "-w",
+        help="Lint a NexusOS workspace vault instead of the kernel source",
+    ),
 ) -> None:
-    """Run static checks over the kernel source using the project's own tooling.
+    """Run static checks over the kernel source OR lint a workspace vault.
 
-    Developer tooling: runs ruff (lint + format check) and mypy over the
-    NexusOS source tree and exits non-zero when any tool reports findings.
-    This is not the workspace vault linter (a future product feature).
+    With ``--workspace PATH`` this is the workspace vault linter: a
+    read-only battery of checks over the vault's source files and index
+    (broken wiki links, invalid frontmatter, ambiguous links, orphans,
+    duplicate slugs, stale index, oversized/empty documents, symlink
+    escapes, files outside collections). Without a workspace it runs the
+    project's own tooling (ruff + mypy) over the NexusOS source tree.
     """
+    if workspace is not None:
+        ws_root = workspace.resolve(strict=True)
+        try:
+            vault_report = run_vault_lint(ws_root)
+        except NexusOSError as exc:
+            typer.echo(f"Error: {exc}", err=True)
+            raise typer.Exit(code=exc.exit_code)
+        print_vault_lint_report(vault_report, use_json=use_json)
+        if vault_report.has_findings:
+            raise typer.Exit(code=1)
+        return
+
     if tool is not None and tool not in LINT_TOOLS:
         typer.echo(f"Unknown lint tool: {tool}; expected one of {', '.join(LINT_TOOLS)}", err=True)
         raise typer.Exit(code=2)
@@ -393,14 +418,35 @@ def serve(
     workspace: Path | None = typer.Option(None, "--workspace", "-w", help="Path to workspace root"),
     host: str | None = typer.Option(None, "--host", help="Bind host (default: config server_host)"),
     port: int | None = typer.Option(None, "--port", help="Bind port (default: config server_port)"),
+    transport: str = typer.Option(
+        "http",
+        "--transport",
+        help="Transport: 'http' (kernel-data HTTP server), 'stdio' (MCP over stdio), "
+        "'streamable-http' (MCP over loopback HTTP)",
+    ),
 ) -> None:
-    """Serve kernel data over a local HTTP server.
+    """Serve a NexusOS workspace over HTTP or the Model Context Protocol.
 
-    Starts a read-only HTTP server exposing the workspace index (status,
-    counts, documents, meta, runs) as JSON plus any packaged UI assets.
-    Shuts down cleanly on SIGINT/SIGTERM (Ctrl-C).
+    ``--transport http`` (default) starts the read-only kernel-data HTTP
+    server (status, counts, documents, meta, runs as JSON plus the bundled
+    UI). ``--transport stdio`` starts the MCP server speaking JSON-RPC over
+    stdin/stdout for MCP clients. ``--transport streamable-http`` starts
+    the MCP server over loopback-only Streamable HTTP (default
+    127.0.0.1:8765). All transports shut down cleanly on SIGINT/SIGTERM.
     """
     ws_root = _resolve_workspace(workspace)
+
+    if transport in ("stdio", "streamable-http"):
+        _serve_mcp(ws_root, transport=transport, host=host, port=port)
+        return
+
+    if transport != "http":
+        typer.echo(
+            f"Error: unknown transport {transport!r}; expected 'http', 'stdio', or "
+            "'streamable-http'.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
 
     try:
         config = load_config_effective(ws_root)
@@ -445,18 +491,14 @@ def serve(
         typer.echo("Server stopped.")
 
 
-@app.command()
-def mcp(
-    workspace: Path | None = typer.Option(None, "--workspace", "-w", help="Path to workspace root"),
+def _serve_mcp(
+    ws_root: Path,
+    *,
+    transport: str,
+    host: str | None = None,
+    port: int | None = None,
 ) -> None:
-    """Serve the workspace over the Model Context Protocol (stdio).
-
-    Speaks JSON-RPC over stdin/stdout for MCP clients. Launch as a
-    subprocess (e.g. ``hermes mcp add`` or an MCP client config); do not run
-    interactively. Nothing is printed to stdout before the protocol starts.
-    """
-    ws_root = _resolve_workspace(workspace)
-
+    """Run the MCP server for a workspace (stdio or streamable-http)."""
     try:
         config = load_config_effective(ws_root)
     except NexusOSError as exc:
@@ -469,21 +511,49 @@ def mcp(
             err=True,
         )
         raise typer.Exit(code=3)
-    if config.mcp_transport != "stdio":
+    if transport == "stdio" and config.mcp_transport not in ("stdio", "streamable-http"):
         typer.echo(
             f"Error: unsupported MCP transport {config.mcp_transport!r}; "
-            "only 'stdio' is supported today.",
+            "expected 'stdio' or 'streamable-http'.",
             err=True,
         )
         raise typer.Exit(code=3)
+    # streamable-http is always allowed as an explicit CLI request.
 
     # Lazy import: keep the mcp SDK out of the hot path for other commands.
     from nexusos.mcp.server import build_server
 
     server = build_server(ws_root, config=config)
-    # server.run() installs its own anyio event loop, so this must be called
-    # from a fresh sync context (not inside an existing asyncio loop).
-    server.run(transport="stdio")
+    if transport == "stdio":
+        # server.run() installs its own anyio event loop, so this must be
+        # called from a fresh sync context (not an existing asyncio loop).
+        server.run(transport="stdio")
+    else:
+        bind_host = host or config.server_host
+        bind_port = port if port is not None else config.server_port
+        typer.echo(
+            f"Serving NexusOS MCP over Streamable HTTP on "
+            f"http://{bind_host}:{bind_port}/mcp (workspace: {ws_root})",
+            err=True,
+        )
+        server.run(
+            transport="streamable-http",
+            host=bind_host,
+            port=bind_port,
+        )
+
+
+@app.command()
+def mcp(
+    workspace: Path | None = typer.Option(None, "--workspace", "-w", help="Path to workspace root"),
+) -> None:
+    """Serve the workspace over the Model Context Protocol (stdio).
+
+    Speaks JSON-RPC over stdin/stdout for MCP clients. Launch as a
+    subprocess (e.g. ``hermes mcp add`` or an MCP client config); do not run
+    interactively. Nothing is printed to stdout before the protocol starts.
+    """
+    _serve_mcp(_resolve_workspace(workspace), transport="stdio")
 
 
 @app.command()

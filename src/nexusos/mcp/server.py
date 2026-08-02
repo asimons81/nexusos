@@ -1,10 +1,12 @@
 """MCP server for NexusOS: publish the workspace index over the Model Context Protocol.
 
-The server wraps the read-only service layer (search, browse, read, recent,
-links, context) and the index service as MCP tools over stdio. Every tool
-returns JSON-serializable data (both as text content and structured content),
-and service errors surface as clean MCP tool errors instead of crashing the
-server.
+The server wraps the read-only service layer (status, search, browse, read,
+recent, links, context) and the index service as MCP tools. It speaks the
+protocol over stdio (``nexusos mcp`` / ``python -m nexusos.mcp``) or
+loopback-only Streamable HTTP (``nexusos serve --transport streamable-http``).
+Every tool returns JSON-serializable data (both as text content and
+structured content), and service errors surface as clean MCP tool errors
+instead of crashing the server.
 
 Layering: this package is a top layer above ``services`` (sibling of
 ``cli``). It is never imported by ``core``, ``workspace``, or ``indexing``.
@@ -33,6 +35,7 @@ from nexusos.services.navigation_service import (
     recent_documents,
 )
 from nexusos.services.search_service import search_workspace
+from nexusos.services.status_service import get_status
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -103,6 +106,10 @@ class ContextArgs(_StrictArgs):
 
     item: str
     sibling_limit: int = DEFAULT_LIMIT
+
+
+class StatusArgs(_StrictArgs):
+    """Arguments for the ``status`` tool (none required)."""
 
 
 class IndexArgs(_StrictArgs):
@@ -279,6 +286,25 @@ def _build_context_tool(workspace_root: Path, config: NexusOSConfig) -> Tool:
     )
 
 
+def _build_status_tool(workspace_root: Path, config: NexusOSConfig) -> Tool:
+    async def _status() -> dict[str, Any]:
+        try:
+            return get_status(workspace_root)
+        except NexusOSError as exc:
+            raise _err(exc) from exc
+
+    return _make_tool(
+        name="status",
+        description=(
+            "Show workspace index status: index state, document/chunk/heading "
+            "counts, link counts, last successful index time, and staleness "
+            "reasons. Read-only; never creates the index database."
+        ),
+        args_model=StatusArgs,
+        fn=_status,
+    )
+
+
 def _build_index_tool(workspace_root: Path, config: NexusOSConfig) -> Tool:
     async def _index(full: bool = False, dry_run: bool = False) -> dict[str, Any]:
         try:
@@ -314,8 +340,9 @@ def build_server(
         config: Effective configuration; loaded from the workspace when None.
 
     Returns:
-        A configured :class:`MCPServer` exposing the search, browse, read,
-        recent, links, context, and index tools over stdio.
+        A configured :class:`MCPServer` exposing the status, search, browse,
+        read, recent, links, context, and index tools over the requested
+        transport (stdio or streamable-http).
     """
     root = Path(workspace_root).resolve(strict=False)
     if config is None:
@@ -324,6 +351,7 @@ def build_server(
         config = load_config_effective(root)
 
     tools = [
+        _build_status_tool(root, config),
         _build_search_tool(root, config),
         _build_browse_tool(root, config),
         _build_read_tool(root, config),

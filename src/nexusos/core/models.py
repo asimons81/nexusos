@@ -79,7 +79,7 @@ class NexusOSConfig(BaseModel):
 
     # MCP server
     mcp_enabled: bool = True
-    mcp_transport: str = "stdio"  # stdio (only transport supported today)
+    mcp_transport: str = "stdio"  # stdio | streamable-http
 
     # Lint
     lint_max_file_size_bytes: int = 5_242_880  # 5 MiB
@@ -162,3 +162,47 @@ class LintReport(BaseModel):
     def has_findings(self) -> bool:
         """True when any tool failed or could not be run."""
         return self.failed > 0 or self.errors > 0
+
+
+# -- vault linter models ------------------------------------------------------
+
+
+class VaultLintFinding(BaseModel):
+    """A single problem found by the workspace vault linter.
+
+    ``path`` is a workspace-relative source path; ``line`` is 1-based when
+    the finding is anchored to a specific source line, otherwise None.
+    """
+
+    check: str
+    path: str
+    line: int | None = None
+    message: str
+
+
+class VaultLintCheck(BaseModel):
+    """One vault lint check result (e.g. broken-links, orphans)."""
+
+    name: str
+    status: str  # pass | fail | warn
+    message: str
+    findings: list[VaultLintFinding] = Field(default_factory=list)
+
+
+class VaultLintReport(BaseModel):
+    """Aggregate result of linting a NexusOS workspace vault.
+
+    ``passed``/``warned``/``failed`` count checks, not findings. A check
+    that reports findings but does not fail (e.g. orphans) is ``warn``.
+    """
+
+    workspace: str
+    checks: list[VaultLintCheck] = Field(default_factory=list)
+    passed: int = 0
+    warned: int = 0
+    failed: int = 0
+
+    @property
+    def has_findings(self) -> bool:
+        """True when any check failed (warnings alone do not fail lint)."""
+        return self.failed > 0

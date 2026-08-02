@@ -65,10 +65,10 @@ def main(argv: list[str] | None = None) -> None:
             file=sys.stderr,
         )
         raise SystemExit(3)
-    if config.mcp_transport != "stdio":
+    if config.mcp_transport not in ("stdio", "streamable-http"):
         print(
             f"nexusos-mcp: error: unsupported transport {config.mcp_transport!r}; "
-            "only 'stdio' is supported today",
+            "expected 'stdio' or 'streamable-http'",
             file=sys.stderr,
         )
         raise SystemExit(3)
@@ -76,7 +76,14 @@ def main(argv: list[str] | None = None) -> None:
     server = build_server(workspace_root, config=config)
     # server.run() installs its own anyio event loop, so this must be called
     # from a fresh sync context (not inside an existing asyncio loop).
-    server.run(transport="stdio")
+    if config.mcp_transport == "streamable-http":
+        server.run(
+            transport="streamable-http",
+            host=config.server_host,
+            port=config.server_port,
+        )
+    else:
+        server.run(transport="stdio")
 
 
 if __name__ == "__main__":
