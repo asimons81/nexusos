@@ -34,7 +34,7 @@ from nexusos.services.navigation_service import (
     recent_documents,
 )
 from nexusos.services.search_service import SearchReport, search_workspace
-from nexusos.services.serve_service import create_server
+from nexusos.services.serve_service import create_server, is_loopback_host
 from nexusos.services.status_service import get_status
 from nexusos.services.vault_lint_service import (
     print_vault_lint_report,
@@ -457,6 +457,14 @@ def serve(
     bind_host = host or config.server_host
     bind_port = port if port is not None else config.server_port
 
+    if not is_loopback_host(bind_host):
+        typer.echo(
+            f"Warning: binding to non-loopback host {bind_host!r} exposes the "
+            "kernel-data API on the network. The API token is the only access "
+            "control; prefer 127.0.0.1/localhost for local use.",
+            err=True,
+        )
+
     try:
         server = create_server(ws_root, host=bind_host, port=bind_port)
     except OSError as exc:
@@ -466,7 +474,11 @@ def serve(
     actual_host, actual_port = (str(x) for x in server.server_address[:2])
     serve_url = f"http://{actual_host}:{actual_port}"
     typer.echo(f"Serving NexusOS kernel data on {serve_url} (workspace: {ws_root})")
+    typer.echo(f"API token: {server.nexusos_token}  # send as X-NexusOS-Token on /api/* requests")
     typer.echo("Press Ctrl-C (SIGINT) to stop.")
+    # Flush so piped consumers (tests, supervisors) see the token promptly
+    # instead of waiting for the stdout buffer to fill while the server runs.
+    sys.stdout.flush()
 
     stop_event = threading.Event()
 
@@ -531,6 +543,14 @@ def _serve_mcp(
     else:
         bind_host = host or config.server_host
         bind_port = port if port is not None else config.server_port
+        if not is_loopback_host(bind_host):
+            typer.echo(
+                f"Warning: binding MCP Streamable HTTP to non-loopback host "
+                f"{bind_host!r} exposes an unauthenticated JSON-RPC endpoint "
+                "(including the index write tool) on the network; prefer "
+                "127.0.0.1/localhost.",
+                err=True,
+            )
         typer.echo(
             f"Serving NexusOS MCP over Streamable HTTP on "
             f"http://{bind_host}:{bind_port}/mcp (workspace: {ws_root})",

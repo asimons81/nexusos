@@ -87,10 +87,11 @@ def clean_repo_copy(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return target
 
 
-def _http_get(url: str) -> tuple[int, str]:
+def _http_get(url: str, headers: dict[str, str] | None = None) -> tuple[int, str]:
     """GET a URL and return (status, body)."""
+    req = urllib.request.Request(url, headers=headers or {})
     try:
-        with urllib.request.urlopen(url, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:
             return resp.status, resp.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8")
@@ -105,6 +106,7 @@ class ServeHarness:
 
     def __init__(self, workspace: Path, **kwargs: object) -> None:
         self.server = serve_service.create_server(workspace, host="127.0.0.1", port=0, **kwargs)
+        self.token = self.server.nexusos_token
         self._thread = threading.Thread(
             target=self.server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True
         )
@@ -122,6 +124,10 @@ class ServeHarness:
         self.server.shutdown()
         self.server.server_close()
         self._thread.join(timeout=5)
+
+    def get(self, path: str) -> tuple[int, str]:
+        """GET a path on this server with the API token attached."""
+        return _http_get(f"{self.base_url}{path}", headers={"X-NexusOS-Token": self.token})
 
 
 def serve_harness(workspace: Path) -> ServeHarness:
@@ -247,11 +253,11 @@ def test_serve_status_uninitialized_and_read_only(
 ) -> None:
     ws = _make_workspace(tmp_path, monkeypatch)
     with serve_harness(ws) as harness:
-        status, body = _http_get(f"{harness.base_url}/api/status")
+        status, body = harness.get("/api/status")
         assert status == 200
         assert json.loads(body)["status"] == "uninitialized"
         # data endpoints must not create the database
-        status2, _ = _http_get(f"{harness.base_url}/api/documents")
+        status2, _ = harness.get("/api/documents")
         assert status2 == 404
         assert not (ws / ".nexusos" / "index.sqlite3").exists()
         assert not (ws / ".nexusos" / "index.lock").exists()
@@ -266,10 +272,10 @@ def test_serve_documents_and_root_page_after_index(
     run = index_workspace(ws)
     assert run.success
     with serve_harness(ws) as harness:
-        status, body = _http_get(f"{harness.base_url}/api/status")
+        status, body = harness.get("/api/status")
         assert status == 200
         assert json.loads(body)["document_count"] >= 2
-        status2, body2 = _http_get(f"{harness.base_url}/api/documents")
+        status2, body2 = harness.get("/api/documents")
         assert status2 == 200
         docs = json.loads(body2)
         assert isinstance(docs, list)
@@ -288,18 +294,18 @@ def test_serve_document_lookup_and_counts(tmp_path: Path, monkeypatch: pytest.Mo
 
     index_workspace(ws)
     with serve_harness(ws) as harness:
-        status, body = _http_get(f"{harness.base_url}/api/counts")
+        status, body = harness.get("/api/counts")
         assert status == 200
         counts = json.loads(body)
         # Starter template ships root README.md + SCHEMA.md; the **/*.md fix
         # now discovers and indexes them alongside the two wiki docs
         # (previously root files were silently skipped).
         assert counts["document_count"] == 4
-        status2, body2 = _http_get(f"{harness.base_url}/api/documents/wiki/concepts/agents.md")
+        status2, body2 = harness.get("/api/documents/wiki/concepts/agents.md")
         assert status2 == 200
         doc = json.loads(body2)
         assert doc["title"] == "AI Agents"
-        status3, _ = _http_get(f"{harness.base_url}/api/documents/does/not/exist.md")
+        status3, _ = harness.get("/api/documents/does/not/exist.md")
         assert status3 == 404
 
 

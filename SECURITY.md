@@ -11,6 +11,10 @@ NexusOS is designed as a **read-only memory kernel**. For v0.1, the system:
 5. **Uses atomic writes** for critical state files
 6. **Never requires network access** for core functions
 7. **Exposes no secrets** in configuration display
+8. **Restricts the local dev server** — `nexusos serve` only honors loopback
+   `Host` headers (DNS-rebinding defense), requires a per-process
+   `X-NexusOS-Token` for `/api/*` reads, and warns loudly when bound to a
+   non-loopback host
 
 ## Denied Paths
 

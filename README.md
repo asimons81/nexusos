@@ -60,6 +60,7 @@ nexusos lint --tool mypy     # Run a single tool (ruff | format | mypy)
 nexusos lint --json          # Machine-readable report
 nexusos serve --workspace WS # Read-only HTTP server for kernel data (JSON + UI)
 nexusos serve --port 8765    # Configurable port; SIGINT/SIGTERM shuts down cleanly
+                             # /api/* reads require the printed X-NexusOS-Token
 nexusos demo                 # Scripted walkthrough: synthetic vault, init→index→status→doctor
 nexusos demo --path DIR      # Create the demo vault at DIR
 nexusos demo --remove        # Delete the demo vault when done

@@ -164,15 +164,30 @@ def test_serve_http_transport_starts_and_serves(tmp_path: Path) -> None:
         cwd=str(ws),
     )
     try:
+        import re
         import urllib.request
+
+        # The CLI prints the per-process API token on startup; /api/* reads
+        # require it (F-02). Read the startup output until the token appears.
+        token: str | None = None
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline and token is None:
+            line = proc.stdout.readline()
+            if not line:
+                break
+            match = re.search(r"API token: (\S+)", line)
+            if match:
+                token = match.group(1)
+        assert token is not None, proc.stdout.read()
 
         url = f"http://127.0.0.1:{port}/api/status"
         status = None
+        req = urllib.request.Request(url, headers={"X-NexusOS-Token": token})
         for _ in range(40):
             if proc.poll() is not None:
                 break
             try:
-                with urllib.request.urlopen(url, timeout=1) as resp:
+                with urllib.request.urlopen(req, timeout=1) as resp:
                     status = resp.status
                     break
             except Exception:
@@ -191,3 +206,45 @@ def test_serve_unknown_transport_rejected(tmp_path: Path) -> None:
     proc = _run_cli(ws, "serve", "--transport", "bogus")
     assert proc.returncode == 2
     assert "unknown transport" in proc.stderr
+
+
+def test_serve_non_loopback_host_warns(tmp_path: Path) -> None:
+    """Binding to a non-loopback host must print an explicit warning (F-08)."""
+    ws = _make_workspace(tmp_path, broken=False)
+    port = 19877
+    proc = subprocess.Popen(
+        [
+            str(NEXUSOS_BIN),
+            "serve",
+            "--transport",
+            "http",
+            "--workspace",
+            str(ws),
+            "--host",
+            "0.0.0.0",
+            "--port",
+            str(port),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env=_env(),
+        cwd=str(ws),
+    )
+    try:
+        # The warning is printed at startup; read until it (or EOF) appears.
+        output = ""
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline and "Warning" not in output:
+            line = proc.stdout.readline()
+            if not line:
+                break
+            output += line
+        assert "Warning" in output, f"no non-loopback warning; output:\n{output}"
+        assert "0.0.0.0" in output
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
