@@ -48,10 +48,14 @@ def find_repo_root(start: Path | None = None) -> Path | None:
 
 
 def _find_tool(name: str, repo_root: Path) -> str | None:
-    """Resolve a tool executable, preferring the repo's own virtualenv."""
-    on_path = shutil.which(name)
-    if on_path is not None:
-        return on_path
+    """Resolve a tool executable, preferring the repo's own virtualenv.
+
+    The repo venv wins over PATH because the project's mypy/ruff are the
+    ones with access to the project's dependencies (e.g. the ``mcp`` SDK in
+    ``uv.lock``); a PATH mypy from an unrelated environment cannot resolve
+    those imports and would report false findings. PATH remains the fallback
+    for checkouts without a local venv.
+    """
     for candidate in (
         repo_root / ".venv" / "bin" / name,
         repo_root / ".venv" / "Scripts" / f"{name}.exe",
@@ -59,6 +63,9 @@ def _find_tool(name: str, repo_root: Path) -> str | None:
     ):
         if candidate.is_file():
             return str(candidate)
+    on_path = shutil.which(name)
+    if on_path is not None:
+        return on_path
     return None
 
 
