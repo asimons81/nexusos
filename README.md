@@ -29,7 +29,27 @@ nexusos doctor               # Validate workspace health
 nexusos config show          # Display configuration
 nexusos config show --effective  # Resolved configuration
 nexusos config show --json   # JSON output
+nexusos index                # Index the workspace (incremental; --full rebuilds)
+nexusos status               # Show index status and staleness
 ```
+
+## Developer Tooling
+
+```bash
+nexusos lint                 # Run ruff + mypy static checks over the kernel source
+nexusos lint --tool mypy     # Run a single tool (ruff | format | mypy)
+nexusos lint --json          # Machine-readable report
+nexusos serve --workspace WS # Read-only HTTP server for kernel data (JSON + UI)
+nexusos serve --port 8765    # Configurable port; SIGINT/SIGTERM shuts down cleanly
+nexusos demo                 # Scripted walkthrough: synthetic vault, init→index→status→doctor
+nexusos demo --path DIR      # Create the demo vault at DIR
+nexusos demo --remove        # Delete the demo vault when done
+```
+
+`lint`, `serve`, and `demo` are developer commands for this repository. They
+operate on the NexusOS kernel source and on synthetic demo data — they are not
+the workspace vault linter or the MCP server, which remain future product
+features.
 
 ## Workspace Structure
 

@@ -15,7 +15,26 @@ uv run nexusos version
 uv run nexusos init /tmp/test-ws
 uv run nexusos doctor --workspace /tmp/test-ws
 uv run nexusos config show --workspace /tmp/test-ws --effective
+uv run nexusos index --workspace /tmp/test-ws
+uv run nexusos status --workspace /tmp/test-ws
 ```
+
+## Developer Tooling Commands
+
+```bash
+uv run nexusos lint                     # ruff + mypy over the kernel source
+uv run nexusos lint --tool mypy         # single tool
+uv run nexusos lint --json              # machine-readable
+uv run nexusos serve --workspace /tmp/test-ws --port 8765   # read-only kernel-data HTTP server
+uv run nexusos demo                     # scripted walkthrough in a temp vault
+uv run nexusos demo --path /tmp/demo-vault --remove
+```
+
+`lint` runs the project's static-analysis tooling and exits non-zero on
+findings. `serve` exposes the workspace index as JSON (plus the bundled UI
+page at `/`) and shuts down on SIGINT/SIGTERM. `demo` builds a synthetic demo
+vault and walks through init → index → status → doctor with usage examples.
+These are developer commands, not the vault linter or MCP server.
 
 ## Quality Checks
 

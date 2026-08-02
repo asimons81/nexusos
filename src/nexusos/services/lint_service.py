@@ -136,6 +136,19 @@ def run_lint(*, repo_root: Path | None = None, tool: str | None = None) -> LintR
             errors=1,
         )
 
+    if tool is not None and tool not in LINT_TOOLS:
+        return LintReport(
+            repo_root=str(root),
+            checks=[
+                LintCheck(
+                    tool=tool,
+                    status=LintStatus.ERROR,
+                    message=f"unknown lint tool {tool!r}; expected one of {', '.join(LINT_TOOLS)}",
+                )
+            ],
+            errors=1,
+        )
+
     selected = [tool] if tool is not None else list(LINT_TOOLS)
     checks = [_run_tool(name, root) for name in selected]
     report = LintReport(

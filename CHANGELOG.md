@@ -15,6 +15,11 @@
   - Index-run records for status reporting, with per-run counters and success/error summaries
 - Additive typed errors in `nexusos.core.errors`: `IndexingError` hierarchy (database, schema, corrupt database, transaction, entry, workspace-mismatch, lock) with dedicated exit codes
 - 68 new unit tests for the indexing kernel (full suite: 148 passing)
+- Developer tooling commands:
+  - `nexusos lint` — runs the project's own static-analysis tooling (ruff check, ruff format --check, mypy) over the kernel source and exits non-zero on findings; `--tool` selects a single tool, `--json` emits a machine-readable report
+  - `nexusos serve` — read-only loopback HTTP server exposing kernel data (`/healthz`, `/api/status`, `/api/meta`, `/api/counts`, `/api/documents`, `/api/runs`) plus the bundled UI page; configurable `--host`/`--port` and clean SIGINT/SIGTERM shutdown
+  - `nexusos demo` — scripted walkthrough of core features: creates a synthetic demo vault (init → seed → index → status → doctor) and prints usage examples; `--path` and `--remove` control the vault location/lifetime
+- 20 smoke tests for the lint/serve/demo commands (registration, help, exit codes, HTTP endpoints, read-only guarantees, SIGINT shutdown)
 
 ### Not yet implemented
 
