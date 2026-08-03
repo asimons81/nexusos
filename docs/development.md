@@ -3,8 +3,8 @@
 ## Setup
 
 ```bash
-git clone https://github.com/asimons81/nexusOS
-cd nexusOS
+git clone https://github.com/asimons81/nexusos
+cd nexusos
 uv sync
 ```
 
