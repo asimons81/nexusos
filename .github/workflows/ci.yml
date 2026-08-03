@@ -47,12 +47,7 @@ jobs:
         run: uv run mypy src
 
       - name: Test (full suite, with coverage)
-        run: |
-          uv run pytest --cov=nexusos \
-            --cov-report=term-missing \
-            --cov-report=xml:coverage.xml \
-            --cov-report=html:htmlcov \
-            -q
+        run: uv run pytest --cov=nexusos --cov-report=term-missing --cov-report=xml:coverage.xml --cov-report=html:htmlcov -q
 
       # A3-03: security-critical modules keep targeted floors even when the
       # aggregate passes. coverage report --include uses the same data file as
