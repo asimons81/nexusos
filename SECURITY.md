@@ -18,12 +18,19 @@ NexusOS v0.1 is designed for a **local, single-user workspace controlled by the
 operator**. It is not an internet-facing multi-user service and does not provide a full
 authentication or authorization system.
 
-Core workflows require no network access. MCP stdio runs as a local subprocess.
-Streamable HTTP and the inspection API bind to loopback by default.
+Core workflows require no network access. MCP stdio runs as a local subprocess. The local
+inspection API and MCP Streamable HTTP bind to loopback by default.
+
+The two HTTP surfaces have different security contracts:
+
+- the **inspection API and UI** validate Host, reject foreign Origin values, and require a
+  per-process `X-NexusOS-Token` for `/api/*`
+- the **MCP Streamable HTTP endpoint** is an unauthenticated JSON-RPC endpoint that
+  includes the derived-state `index` tool
 
 A user may explicitly request a non-loopback bind. That is an operator override of the
-supported default, not a guarantee that the built-in token and Host checks are a complete
-security perimeter for hostile networks.
+supported default. Neither HTTP surface should be exposed to an untrusted network without
+an external security layer appropriate to the deployment.
 
 ## Security invariants
 
@@ -97,9 +104,14 @@ sense of protection.
 ### F-08: non-loopback bind is operator-selected
 
 NexusOS warns and proceeds when the operator explicitly binds a server to a non-loopback
-host. The inspection API retains Host, Origin, and token checks, but these controls are
-not a substitute for TLS, identity, authorization, network policy, and a production
-reverse proxy.
+host.
+
+For the inspection API, Host, Origin, and token checks remain active, but they are not a
+substitute for TLS, identity, authorization, network policy, and a production reverse
+proxy.
+
+For MCP Streamable HTTP, the endpoint is unauthenticated and includes the `index` tool.
+Do not expose it directly to an untrusted network.
 
 ## Out of scope for v0.1
 
