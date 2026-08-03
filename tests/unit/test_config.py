@@ -94,3 +94,37 @@ def test_mcp_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setenv("NEXUSOS_MCP_ENABLED", "false")
     config = load_config(config_path, apply_env=True)
     assert config.mcp_enabled is False
+
+
+def test_operational_env_vars_do_not_warn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Documented operational vars (DENY_PATHS, ALLOW_NON_LOOPBACK) must not
+    trigger the 'unknown NEXUSOS_* variable' warning (A3-05 contract freeze).
+
+    They are not configuration fields, but they are documented public env
+    vars consumed by path safety and the serve policy, so the loader must
+    treat them as known (skip silently) rather than as typos.
+    """
+    config_path = tmp_path / "nexusos.toml"
+    config_path.write_text("")
+    monkeypatch.setenv("NEXUSOS_DENY_PATHS", "/tmp/deny")
+    monkeypatch.setenv("NEXUSOS_ALLOW_NON_LOOPBACK", "1")
+    config = load_config(config_path, apply_env=True)
+    captured = capsys.readouterr()
+    assert "unknown NEXUSOS_* variable" not in captured.err
+    assert "deny_paths" not in config.model_dump()
+    assert "allow_non_loopback" not in config.model_dump()
+
+
+def test_unknown_env_var_warns(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A genuine unknown NEXUSOS_* name still warns and is ignored (A3-05)."""
+    config_path = tmp_path / "nexusos.toml"
+    config_path.write_text("")
+    monkeypatch.setenv("NEXUSOS_BOGUS", "1")
+    config = load_config(config_path, apply_env=True)
+    captured = capsys.readouterr()
+    assert "unknown NEXUSOS_* variable 'NEXUSOS_BOGUS'" in captured.err
+    assert "bogus" not in config.model_dump()

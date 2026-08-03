@@ -45,6 +45,9 @@ jobs:
       - name: Security tests
         run: uv run pytest tests/security/ -q
 
+      - name: Contract tests (A3-05)
+        run: uv run pytest tests/contracts/ -q
+
       - name: Smoke test
         run: |
           uv run nexusos version

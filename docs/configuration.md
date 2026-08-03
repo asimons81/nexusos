@@ -189,6 +189,26 @@ The most common field-name mappings are:
 `include_patterns`, `exclude_patterns`, and `collection_mappings` must be configured in
 TOML because they are list or dictionary fields.
 
+## Operational environment variables
+
+Two documented environment variables are consumed outside the configuration
+model. They are not configuration fields — they never appear in `config show`
+— but the loader treats them as known names and does not emit the "unknown
+`NEXUSOS_*` variable" warning for them.
+
+| Variable | Semantics |
+|---|---|
+| `NEXUSOS_DENY_PATHS` | OS-path-separator list of absolute paths denied as workspace targets. Relative entries are ignored with a one-time warning; entries must be absolute (F-05). See [../SECURITY.md](../SECURITY.md). |
+| `NEXUSOS_ALLOW_NON_LOOPBACK` | Set to `1` to allow MCP Streamable HTTP to bind a non-loopback host (F-08). See [mcp.md](mcp.md). |
+
+## Internal fields
+
+`root` and `index_path` are model fields present in `config show --json` but
+are not user-facing tuning knobs in v0.1. `root` is set by the effective
+loader; `index_path` is reserved for future use and the current indexer always
+writes `.nexusos/index.sqlite3`. Do not rely on them. The full contract
+inventory lives in [contracts.md](contracts.md).
+
 ## Viewing configuration
 
 ```bash
