@@ -37,6 +37,9 @@
 
 ### Changed
 
+- CI now runs the full test suite (unit + integration + security) on every
+  leg of the platform matrix (Linux/macOS/Windows × 3.11/3.12/3.13) instead
+  of omitting `tests/integration/` (A3-02).
 - Replaced the feature-bucket roadmap with an executable release train for
   `v0.1.0-alpha.3`, `v0.1.0-rc.1`, and stable, including scoped task IDs,
   dependencies, acceptance criteria, verification commands, and release gates.
