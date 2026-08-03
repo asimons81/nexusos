@@ -651,7 +651,7 @@ def demo(
 ) -> None:
     """Run a scripted walkthrough of core features.
 
-    Creates a synthetic demo vault (init → seed → index → status → doctor)
+    Creates a synthetic demo vault (init -> seed -> index -> status -> doctor)
     and prints the equivalent CLI commands as usage examples. The vault
     lives in a temporary directory unless --path is given.
     """
