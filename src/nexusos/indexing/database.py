@@ -170,7 +170,17 @@ class IndexDatabase:
                     # the schema, which a mode=ro connection cannot do. If the
                     # database is behind the current schema, report a clear
                     # upgrade message instead of a misleading permission error.
+                    # A database written by a NEWER NexusOS is refused with a
+                    # distinct "newer than supported" message (RC-04): telling
+                    # the user to run `nexusos index` for a future schema would
+                    # be wrong, because the writable path refuses it too.
                     current = current_schema_version(conn)
+                    if current > SCHEMA_VERSION:
+                        raise DatabaseSchemaError(
+                            f"index database schema version {current} is newer "
+                            f"than supported version {SCHEMA_VERSION}; refusing "
+                            "to open"
+                        )
                     if current != SCHEMA_VERSION:
                         raise DatabaseSchemaError(
                             f"index database schema version {current} requires "
