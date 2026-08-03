@@ -30,6 +30,7 @@ from nexusos.core.limits import (
     MAX_CONTEXT_SIBLING_LIMIT,
     MAX_RECENT_LIMIT,
     MAX_SEARCH_LIMIT,
+    MAX_SEARCH_TERM_LENGTH,
     MAX_SNIPPET_TOKENS,
     MIN_LIMIT,
 )
@@ -77,7 +78,7 @@ class _StrictArgs(BaseModel):
 class SearchArgs(_StrictArgs):
     """Arguments for the ``search`` tool."""
 
-    term: str
+    term: str = Field(max_length=MAX_SEARCH_TERM_LENGTH)
     limit: int = Field(default=DEFAULT_LIMIT, ge=MIN_LIMIT, le=MAX_SEARCH_LIMIT)
     snippet_tokens: int = Field(default=200, ge=MIN_LIMIT, le=MAX_SNIPPET_TOKENS)
 

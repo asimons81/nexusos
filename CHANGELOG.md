@@ -72,6 +72,27 @@
   refusal of future schemas, derived-state delete+rebuild without source
   loss, and `init --adopt` recovery after full `.nexusos/` deletion.
   Full suite after RC-03/RC-04: 450 passing.
+- A3-07 adversarial security release review (findings F-09…F-14, GitHub
+  issues #4–#9):
+  - F-09 — `.nexusos/index.lock` created owner-only (`0600`) instead of
+    world-readable; the lock holds an ownership token, pid, host, and run id.
+  - F-10 — the kernel-data HTTP server no longer embeds the per-process API
+    token in the unauthenticated root page on non-loopback binds, so the
+    token remains a real access control for `/api/*`; the CLI warning now
+    states the token is not embedded on such binds.
+  - F-11 — byte-for-byte source-immutability tests across CLI retrieval,
+    kernel-data HTTP `/api/documents`, and MCP stdio read/search, plus HTTP
+    path-traversal tests for `/api/documents/...` and `/ui/...`.
+  - F-12 — the index SQLite database (and `-wal`/`-shm` siblings) is
+    tightened to owner-only (`0600`) on writable open, matching
+    `workspace.json`.
+  - F-13 — search terms are length-bounded (`MAX_SEARCH_TERM_LENGTH`) in the
+    shared service layer and in the MCP `search` tool schema so a single
+    caller cannot force unbounded FTS work.
+  - F-14 — `docs/security-model.md` expanded into a full threat model with
+    per-review-area evidence and accepted limitations; `SECURITY.md` now names
+    the concrete private advisory URL as the vulnerability reporting path.
+  Full suite after A3-07: 462 passing.
 
 ## 0.1.0-alpha.2 (2026-08-02)
 
