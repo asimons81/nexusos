@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Replaced the feature-bucket roadmap with an executable release train for
+  `v0.1.0-alpha.3`, `v0.1.0-rc.1`, and stable, including scoped task IDs,
+  dependencies, acceptance criteria, verification commands, and release gates.
+- Reworked the README, contributor guide, agent instructions, architecture,
+  configuration, MCP, linting, security, and release documentation around the current
+  prerelease boundary and implemented behavior.
+- Added structured roadmap issue and pull-request templates that require contract,
+  acceptance, verification, security, and documentation evidence.
+- Refreshed generated blank and starter workspace configuration and README content so new
+  workspaces describe the current indexing, search, linting, serving, and MCP workflows.
+- Normalized package metadata links to the canonical lowercase repository URL.
+
+### Added
+
+- Release procedure covering version consistency, artifact builds, clean installation,
+  MCP validation, upgrade testing, publication, tagging, evidence, and rollback.
+- Regression coverage that prevents generated workspace documentation and configuration
+  from drifting behind implemented features.
+
 ## 0.1.0-alpha.2 (2026-08-02)
 
 ### Added
