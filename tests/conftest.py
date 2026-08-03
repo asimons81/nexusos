@@ -12,6 +12,12 @@ import pytest
 _POSIX_PERMISSION_TESTS = {
     "test_database_regression_readonly_db_message",
     "test_database_regression_readonly_db_permission_error_type",
+    # A3-07 F-09/F-12: owner-only (0o600) index lock + database. The
+    # implementation enforces 0o600 on POSIX (os.open mode / chmod); Windows
+    # has no POSIX mode bits (ACL-based), so stat.S_IMODE always reports
+    # 0o666 there regardless of chmod. Assertion is strict on Linux/macOS.
+    "test_f09_index_lock_file_is_owner_only",
+    "test_f12_index_database_is_owner_only",
 }
 
 
