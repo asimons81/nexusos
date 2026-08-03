@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-import pytest
+from typing import TYPE_CHECKING
 
 from nexusos.workspace.init import init_workspace
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    import pytest
 
 
 def test_starter_template_documents_current_workflow(
