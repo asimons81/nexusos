@@ -16,7 +16,10 @@ import pytest
 pytestmark = pytest.mark.integration
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-NEXUSOS_BIN = REPO_ROOT / ".venv" / "bin" / "nexusos"
+if os.name == "nt":
+    NEXUSOS_BIN = REPO_ROOT / ".venv" / "Scripts" / "nexusos.exe"
+else:
+    NEXUSOS_BIN = REPO_ROOT / ".venv" / "bin" / "nexusos"
 
 
 def _env() -> dict[str, str]:
