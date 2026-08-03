@@ -26,9 +26,9 @@ inside `.nexusos/`, then gives humans and agents deterministic tools to search, 
 read, inspect links, assemble context, and verify workspace health.
 
 > [!IMPORTANT]
-> NexusOS is currently **pre-release software** at `v0.1.0-alpha.2`. The planned v0.1
-> core feature scope is implemented, but release hardening, packaging validation,
-> cross-platform proof, and public contract freeze are still in progress. See the
+> NexusOS is **pre-release software** at `v0.1.0-alpha.2`. The planned v0.1 core feature
+> scope is implemented, but release hardening, packaging validation, cross-platform
+> proof, security review, and public contract freeze are still in progress. See the
 > [release roadmap](ROADMAP.md).
 
 ## Why NexusOS
@@ -38,13 +38,13 @@ trusting an opaque retrieval pipeline.
 
 NexusOS is built around a smaller contract:
 
-- **Local first:** core workflows require no network connection or hosted account.
+- **Local first:** core workflows require no hosted account or network connection.
 - **Files stay yours:** Markdown and text remain readable without NexusOS.
-- **Deterministic retrieval:** SQLite FTS5, stable identifiers, source paths, and line
-  ranges make results inspectable.
+- **Deterministic retrieval:** SQLite FTS5, stable IDs, source paths, and line ranges make
+  results inspectable.
 - **Agent native:** the same service layer powers the CLI and MCP tools.
 - **Read-only by default:** retrieval never edits source documents.
-- **Rebuildable state:** delete the index and regenerate it from the source corpus.
+- **Rebuildable state:** the index can be deleted and regenerated from source files.
 
 ## What works today
 
@@ -53,12 +53,12 @@ NexusOS is built around a smaller contract:
 - safe workspace initialization with blank and starter templates
 - path boundaries, deny paths, nested-workspace protection, and doctor checks
 - deterministic Markdown and plain-text indexing into SQLite with FTS5
-- incremental indexing and stale-index detection
+- incremental indexing and content-aware stale-index detection
 - ranked search with source paths, headings, snippets, and line ranges
 - browse, read, recent, links, and deterministic context navigation
 - workspace linting for link, frontmatter, structure, and staleness problems
 - MCP over stdio and loopback-first Streamable HTTP
-- a read-only local HTTP API and bundled inspection UI
+- a read-only local inspection API and bundled UI
 - JSON output for automation-friendly command paths
 
 Not included in v0.1: embeddings, vector search, ingestion connectors, guarded source
@@ -66,42 +66,29 @@ writes, cloud hosting, OAuth, sync, or multi-user collaboration.
 
 ## Quick start
 
-NexusOS is not yet published as a stable PyPI package. Install from the source checkout:
+NexusOS is not yet published as a stable PyPI package. Run it from a source checkout:
 
 ```bash
 git clone https://github.com/asimons81/nexusos.git
 cd nexusos
 uv sync
+
 uv run nexusos version
+uv run nexusos init ./example-workspace
+uv run nexusos doctor --workspace ./example-workspace
+uv run nexusos index --workspace ./example-workspace
+uv run nexusos status --workspace ./example-workspace
+uv run nexusos browse --workspace ./example-workspace
+uv run nexusos search "workspace" --workspace ./example-workspace
 ```
 
-Create and index a workspace:
-
-```bash
-uv run nexusos init ~/my-nexus
-cd ~/my-nexus
-
-# Add Markdown or text files, then build derived state.
-/path/to/nexusos/.venv/bin/nexusos index
-/path/to/nexusos/.venv/bin/nexusos status
-/path/to/nexusos/.venv/bin/nexusos search "agent memory"
-```
-
-For active development, running commands from the repository is simpler:
-
-```bash
-uv run nexusos init /tmp/my-nexus
-uv run nexusos index --workspace /tmp/my-nexus
-uv run nexusos search "agent memory" --workspace /tmp/my-nexus
-```
-
-Run the synthetic walkthrough when you want a disposable example:
+For a disposable end-to-end walkthrough:
 
 ```bash
 uv run nexusos demo
 ```
 
-## Core workflow
+## How it works
 
 ```text
 Markdown and text files
@@ -118,8 +105,8 @@ Markdown and text files
           └── MCP tools for agents
 ```
 
-The index is derived state. Source documents are never stored in a proprietary format
-and can be recovered without NexusOS because they never left the filesystem.
+The index is derived state. Source documents are never converted into a proprietary
+format and can be recovered without NexusOS because they never left the filesystem.
 
 ## CLI
 
@@ -140,11 +127,11 @@ and can be recovered without NexusOS because they never left the filesystem.
 | `nexusos lint --workspace PATH` | Lint a workspace vault |
 | `nexusos mcp` | Start the MCP server over stdio |
 | `nexusos serve --transport streamable-http` | Start MCP over HTTP |
-| `nexusos serve --workspace PATH` | Start the read-only local API and UI |
+| `nexusos serve --workspace PATH` | Start the inspection API and UI |
 | `nexusos demo` | Run a synthetic end-to-end walkthrough |
 
-Use `nexusos COMMAND --help` for the current option contract. Commands detect the
-workspace from the current directory unless `--workspace` is supplied.
+Use `nexusos COMMAND --help` for the current option contract. Workspace commands detect
+the current workspace unless `--workspace` is supplied.
 
 ## MCP for agents
 
@@ -180,8 +167,10 @@ Available tools:
 | `context` | Deterministic headings, siblings, and linked evidence |
 | `index` | Refresh derived state inside `.nexusos/` |
 
-All retrieval tools are read-only. `index` writes only disposable derived state. See
-[docs/mcp.md](docs/mcp.md) for transports, configuration, and safety boundaries.
+All retrieval tools are read-only. `index` writes only disposable derived state.
+
+MCP Streamable HTTP is loopback-first but unauthenticated. Do not expose it directly to
+an untrusted network. See [docs/mcp.md](docs/mcp.md) and [SECURITY.md](SECURITY.md).
 
 ## Workspace layout
 
@@ -218,8 +207,7 @@ Collections and file patterns are configurable in `nexusos.toml`.
 
 ## Safety boundary
 
-NexusOS v0.1 is designed for a local, single-user workspace under the control of the
-operator.
+NexusOS v0.1 is designed for a local, single-user workspace controlled by the operator.
 
 The current contract includes:
 
@@ -229,12 +217,14 @@ The current contract includes:
 - transactional index writes and an exclusive writer lock
 - temporary-file hardening for critical state writes
 - loopback defaults for local HTTP transports
-- Host validation, Origin checks, and a per-process API token for the inspection API
+- Host validation, Origin checks, and a per-process token for the inspection API
 
-A non-loopback bind is an explicit operator decision, not a claim that NexusOS is an
-internet-facing authenticated service. Review [SECURITY.md](SECURITY.md) and the active
-hardening work in [ROADMAP.md](ROADMAP.md) before using it outside the supported local
-boundary.
+The inspection API and MCP Streamable HTTP are separate surfaces with different security
+contracts. A non-loopback bind is an operator decision, not a claim that NexusOS is an
+internet-facing authenticated service.
+
+Review [SECURITY.md](SECURITY.md) and the active hardening work in
+[ROADMAP.md](ROADMAP.md) before using NexusOS outside the supported local boundary.
 
 ## Configuration
 
@@ -252,8 +242,8 @@ nexusos config show --effective
 nexusos config show --json
 ```
 
-See [docs/configuration.md](docs/configuration.md) for valid keys and environment variable
-names.
+See [docs/configuration.md](docs/configuration.md) for valid keys, defaults, environment
+variable names, and alpha limitations.
 
 ## Development
 
@@ -279,12 +269,12 @@ Read these before changing the repository:
 Roadmap work should reference a task ID such as `A3-04` or `RC-03`. Agents must:
 
 1. state the task and acceptance criteria they are implementing
-2. inspect the implementation before editing documentation or behavior
+2. inspect implementation and tests before editing behavior or docs
 3. preserve architecture boundaries and source immutability
 4. add or update tests for behavioral changes
 5. run the complete verification gate
 6. update affected docs and changelog entries in the same change
-7. report evidence, limitations, and any deferred work explicitly
+7. report evidence, limitations, and deferred work explicitly
 
 “Implemented” without verification evidence is not a completed roadmap task.
 
@@ -303,8 +293,8 @@ Roadmap work should reference a task ID such as `A3-04` or `RC-03`. Agents must:
 
 ## Release status
 
-The project is ready to begin the `v0.1.0-alpha.3` hardening roadmap. Stable release is
-blocked on cross-platform full-suite validation, coverage policy, artifact installation
+The repository is ready to begin the `v0.1.0-alpha.3` hardening roadmap. Stable release
+is blocked on cross-platform full-suite validation, coverage policy, artifact installation
 proof, interface freeze, documentation verification, security review, and release
 candidate testing.
 
