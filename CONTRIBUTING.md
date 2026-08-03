@@ -33,9 +33,13 @@ Run the repository gate:
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy src
-uv run pytest -q
+uv run pytest -q --cov=nexusos
 uv run nexusos version
 ```
+
+The `--cov=nexusos` flag enforces the repository coverage gate (A3-03):
+`fail_under = 80` in `[tool.coverage.report]`, with targeted floors for
+security-critical modules enforced in CI.
 
 ## Pick a scoped task
 

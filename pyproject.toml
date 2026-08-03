@@ -105,6 +105,10 @@ source = ["src/nexusos"]
 omit = ["tests/*"]
 
 [tool.coverage.report]
+# Aggregate gate (A3-03): measured baseline 84% on 2026-08-03 (3773 stmts,
+# 596 miss). 80% is the enforced floor — honest margin below the measured
+# baseline; do not raise it to a vanity number without re-measuring.
+fail_under = 80
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
