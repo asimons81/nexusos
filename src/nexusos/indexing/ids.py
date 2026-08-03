@@ -4,8 +4,8 @@ Document IDs are derived from ``workspace_id + normalized relative path`` so
 they are stable across reindexing and content changes, distinct between
 workspaces, URL-safe, bounded in length, and free of absolute path or machine
 identity data. Chunk IDs additionally incorporate the chunk ordinal and a
-content hash so they change when chunk content changes. Run IDs use secure
-randomness (allowed by the Phase 2 contract).
+content hash so they change when chunk content changes. Run IDs are unique,
+time-sortable identifiers with a secure-random suffix.
 """
 
 from __future__ import annotations
@@ -13,6 +13,8 @@ from __future__ import annotations
 import hashlib
 import secrets
 import string
+import threading
+import time
 
 DOC_ID_PREFIX = "nxo_doc_"
 CHUNK_ID_PREFIX = "nxo_chk_"
@@ -22,6 +24,9 @@ _ID_ALPHABET = string.ascii_lowercase + string.digits
 
 #: Length of the hex digest appended after a prefix.
 _ID_HASH_LENGTH = 32
+
+_RUN_ID_LOCK = threading.Lock()
+_LAST_RUN_TICK = 0
 
 
 def _normalize_relative_path(relative_path: str) -> str:
@@ -59,6 +64,18 @@ def chunk_id(document_id: str, ordinal: int, content_sha256: str) -> str:
 
 
 def run_id() -> str:
-    """Return a random index-run identifier (runs may use secure randomness)."""
-    suffix = "".join(secrets.choice(_ID_ALPHABET) for _ in range(16))
-    return f"{RUN_ID_PREFIX}{suffix}"
+    """Return a unique run identifier that sorts in creation order.
+
+    SQLite orders equally timestamped run records by ``run_id``. Some
+    platforms can return identical wall-clock timestamps for adjacent calls,
+    so the ID begins with a process-monotonic nanosecond tick before adding a
+    secure-random suffix.
+    """
+    global _LAST_RUN_TICK
+
+    with _RUN_ID_LOCK:
+        tick = max(time.time_ns(), _LAST_RUN_TICK + 1)
+        _LAST_RUN_TICK = tick
+
+    random_suffix = "".join(secrets.choice(_ID_ALPHABET) for _ in range(8))
+    return f"{RUN_ID_PREFIX}{tick:020d}{random_suffix}"
