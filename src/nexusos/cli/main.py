@@ -521,7 +521,7 @@ def serve(
     try:
         server = create_server(ws_root, host=bind_host, port=bind_port)
     except (OSError, OverflowError) as exc:
-        typer.echo(f"Error: cannot bind {bind_host}:{bind_port} — {exc}", err=True)
+        typer.echo(f"Error: cannot bind {bind_host}:{bind_port} - {exc}", err=True)
         raise typer.Exit(code=1)
 
     actual_host, actual_port = (str(x) for x in server.server_address[:2])
