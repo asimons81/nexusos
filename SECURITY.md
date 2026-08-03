@@ -28,9 +28,11 @@ The two HTTP surfaces have different security contracts:
 - the **MCP Streamable HTTP endpoint** is an unauthenticated JSON-RPC endpoint that
   includes the derived-state `index` tool
 
-A user may explicitly request a non-loopback bind. That is an operator override of the
-supported default. Neither HTTP surface should be exposed to an untrusted network without
-an external security layer appropriate to the deployment.
+For the inspection API, a non-loopback bind warns and proceeds (the token is the access
+control). For MCP Streamable HTTP, a non-loopback bind is **refused** unless the operator
+explicitly opts in with `--allow-non-loopback` or `NEXUSOS_ALLOW_NON_LOOPBACK=1` (F-08
+resolved). Neither HTTP surface should be exposed to an untrusted network without an
+external security layer appropriate to the deployment.
 
 ## Security invariants
 
@@ -40,13 +42,20 @@ The v0.1 contract is intended to preserve these invariants:
 2. Index writes are limited to derived state inside `.nexusos/`.
 3. Workspace operations reject dangerous roots and paths outside the workspace boundary.
 4. Nested workspaces are refused.
-5. Symlink behavior is explicit and constrained by workspace policy.
+5. Symlink behavior is explicit and constrained by workspace policy. Escaping symlinks
+   are detected at index time and surfaced by `nexusos doctor` and `nexusos init --adopt`
+   (F-07 resolved).
 6. Critical state writes use atomic replacement with unpredictable temporary names.
 7. Index writes are transactional and protected by an exclusive writer lock.
 8. Configuration display does not expose secret-pattern environment variables.
 9. The local inspection API validates Host, rejects foreign Origin values, requires a
    per-process `X-NexusOS-Token` for `/api/*`, and disables caching for the injected UI.
 10. The core retrieval path is deterministic and does not invoke an LLM or remote service.
+11. Source files are re-validated against the workspace boundary immediately before the
+    indexer reads them, closing the scan-to-read TOCTOU window (F-03 resolved).
+12. Result limits (search/browse/recent/context) and `[search]` configuration values are
+    range-validated consistently across the CLI, JSON, config, and MCP surfaces (F-06
+    resolved).
 
 Security tests should prove these invariants using synthetic workspaces.
 
@@ -62,56 +71,14 @@ export NEXUSOS_DENY_PATHS="/home/private:/etc/sensitive"
 $env:NEXUSOS_DENY_PATHS = "C:\Private;D:\Secrets"
 ```
 
+Entries must be **absolute paths** (after tilde expansion). Relative entries are
+non-deterministic — they would resolve against the process working directory and
+could silently miss the location the operator intended to protect — so they are
+ignored with a one-time warning (F-05 resolved).
+
 Built-in forbidden prefixes include sensitive operating-system locations such as `/etc`,
 `/proc`, `/sys`, `/dev`, `/boot`, `/run`, `C:\Windows`, and `C:\Program Files`.
 Workspace roots at `/` and the current user home directory are refused.
-
-Use absolute entries in `NEXUSOS_DENY_PATHS` during the current alpha. Relative entries
-are part of the hardening work tracked as `F-05`.
-
-## Known alpha findings
-
-The following items are documented, accepted prerelease limitations. They remain visible
-until fixed or explicitly deferred through the release process.
-
-### F-03: path-safety TOCTOU window
-
-Some path-safety checks are check-then-use operations. A concurrent hostile process that
-can replace filesystem entries between validation and access may race those checks.
-
-The current supported boundary assumes a local workspace without an untrusted process
-actively racing NexusOS. Closing or formally deferring this finding is required by
-roadmap task `A3-01`.
-
-### F-05: relative deny paths use the current working directory
-
-Relative entries in `NEXUSOS_DENY_PATHS` are resolved against the process working
-directory rather than the workspace root. Use absolute deny paths during the alpha.
-
-### F-06: search configuration values are not range-clamped
-
-`search_max_results` and `search_snippet_length` accept integer values without complete
-range validation. Invalid values may fail at runtime. Do not treat untrusted environment
-or configuration input as safe until the hardening task is complete.
-
-### F-07: unused symlink defense helper
-
-`check_symlink_escape` is currently defense-in-depth code rather than a consistently
-invoked public-path guard. Active indexing behavior is controlled by the configured
-symlink policy. The helper must be integrated into real paths or removed to avoid a false
-sense of protection.
-
-### F-08: non-loopback bind is operator-selected
-
-NexusOS warns and proceeds when the operator explicitly binds a server to a non-loopback
-host.
-
-For the inspection API, Host, Origin, and token checks remain active, but they are not a
-substitute for TLS, identity, authorization, network policy, and a production reverse
-proxy.
-
-For MCP Streamable HTTP, the endpoint is unauthenticated and includes the `index` tool.
-Do not expose it directly to an untrusted network.
 
 ## Out of scope for v0.1
 

@@ -18,6 +18,7 @@ bundled frontend keeps working without manual headers.
 from __future__ import annotations
 
 import json
+import os
 import secrets
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -86,6 +87,23 @@ def is_allowed_host(host_header: str) -> bool:
 def is_loopback_host(host: str) -> bool:
     """True when a bind host is loopback-only (used for the non-loopback warning)."""
     return _host_without_port(host) in _ALLOWED_HOSTS
+
+
+def loopback_bind_policy(host: str, *, allow_non_loopback: bool = False) -> bool:
+    """Decide whether binding to ``host`` is permitted (F-08).
+
+    Loopback hosts are always permitted. A non-loopback bind is refused for
+    the unauthenticated MCP Streamable HTTP surface unless the operator
+    explicitly opts in, either with ``allow_non_loopback=True`` (the CLI
+    ``--allow-non-loopback`` flag) or the ``NEXUSOS_ALLOW_NON_LOOPBACK=1``
+    environment variable. The token-protected kernel-data HTTP server keeps
+    its warn-and-proceed behavior; callers choose which policy applies.
+    """
+    if is_loopback_host(host):
+        return True
+    if allow_non_loopback:
+        return True
+    return os.environ.get("NEXUSOS_ALLOW_NON_LOOPBACK") == "1"
 
 
 def _origin_is_loopback(origin: str) -> bool:

@@ -18,6 +18,12 @@ from nexusos.core.errors import (
     NavigationError,
     WorkspaceNotFoundError,
 )
+from nexusos.core.limits import (
+    MAX_BROWSE_LIMIT,
+    MAX_CONTEXT_SIBLING_LIMIT,
+    MAX_RECENT_LIMIT,
+    validate_limit,
+)
 from nexusos.indexing.kernel import IndexKernel
 from nexusos.indexing.models import (
     DocumentCandidate,
@@ -134,7 +140,16 @@ def browse_workspace(
 
     Returns a JSON-serializable dict with a ``documents`` list ordered by
     ``normalized_path`` then ``title`` (the kernel's deterministic order).
+
+    Raises:
+        NavigationError: when ``limit`` is out of range (F-06).
     """
+    if limit is not None:
+        try:
+            limit = validate_limit(limit, name="limit", maximum=MAX_BROWSE_LIMIT)
+        except ValueError as exc:
+            raise NavigationError(str(exc), exit_code=2) from exc
+
     kernel = _open_readonly(workspace_root)
     try:
         docs = kernel.list_documents()
@@ -224,9 +239,15 @@ def recent_documents(
     *,
     limit: int = DEFAULT_RECENT_LIMIT,
 ) -> dict[str, Any]:
-    """List the most recently modified documents (newest first)."""
-    if limit < 1:
-        raise NavigationError("limit must be a positive integer", exit_code=2)
+    """List the most recently modified documents (newest first).
+
+    Raises:
+        NavigationError: when ``limit`` is out of range (F-06).
+    """
+    try:
+        limit = validate_limit(limit, name="limit", maximum=MAX_RECENT_LIMIT)
+    except ValueError as exc:
+        raise NavigationError(str(exc), exit_code=2) from exc
     kernel = _open_readonly(workspace_root)
     try:
         docs = kernel.recent_documents(limit)
@@ -324,7 +345,16 @@ def document_context(
     Related items are computed deterministically from the index: documents in
     the same collection (siblings) and documents directly linked to or from
     the item. No LLM, no evidence scoring — pure index relations.
+
+    Raises:
+        NavigationError: when ``sibling_limit`` is out of range (F-06).
     """
+    try:
+        sibling_limit = validate_limit(
+            sibling_limit, name="sibling_limit", maximum=MAX_CONTEXT_SIBLING_LIMIT
+        )
+    except ValueError as exc:
+        raise NavigationError(str(exc), exit_code=2) from exc
     kernel = _open_readonly(workspace_root)
     try:
         doc = _require_unique(kernel, item)

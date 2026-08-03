@@ -28,6 +28,9 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
+# --- Audit scratch (one-off review artifacts, not part of the repo) ---
+review-artifacts/
+
 # --- Editor / IDE ---
 .idea/
 .vscode/

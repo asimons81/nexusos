@@ -21,6 +21,7 @@ from nexusos.core.errors import (
 from nexusos.core.models import WorkspaceIdentity
 from nexusos.core.path_safety import (
     check_nesting,
+    check_symlink_escape,
     forbid_root_or_home,
     resolve_safe,
 )
@@ -346,6 +347,12 @@ def _compute_plan(
                     "workspace",
                     exit_code=2,
                 )
+        # F-07 guard: an adopted tree must not contain symlinks that escape
+        # the workspace boundary. check_symlink_escape raises
+        # SymlinkEscapeError on the first escape, which is exactly the
+        # boundary guarantee adopted workspaces inherit from the security
+        # model (symlink escape detection).
+        check_symlink_escape(target, target)
 
     # Non-empty check
     if target.exists() and target.is_dir():

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path  # noqa: TC003
 
 from nexusos.core.errors import IndexingError, WorkspaceNotFoundError
+from nexusos.core.limits import MAX_SEARCH_LIMIT, MAX_SNIPPET_TOKENS, validate_limit
 from nexusos.indexing.kernel import IndexKernel
 from nexusos.indexing.models import SearchHit
 from nexusos.workspace.init import load_workspace_identity
@@ -45,9 +46,22 @@ def search_workspace(
     Args:
         workspace_root: Resolved workspace root path.
         term: Plain-text user query.
-        limit: Maximum number of hits to return.
-        snippet_tokens: Max tokens for each FTS5 snippet excerpt.
+        limit: Maximum number of hits to return (must be in [1, 500]).
+        snippet_tokens: Max tokens for each FTS5 snippet excerpt (must be
+            positive and bounded).
+
+    Raises:
+        IndexingError: when ``limit`` or ``snippet_tokens`` is out of range
+            (F-06), the workspace is uninitialized, or the index is missing.
     """
+    try:
+        limit = validate_limit(limit, name="limit", maximum=MAX_SEARCH_LIMIT)
+        snippet_tokens = validate_limit(
+            snippet_tokens, name="snippet_tokens", maximum=MAX_SNIPPET_TOKENS
+        )
+    except ValueError as exc:
+        raise IndexingError(str(exc), exit_code=2) from exc
+
     identity = load_workspace_identity(workspace_root)
     if identity is None:
         raise WorkspaceNotFoundError(

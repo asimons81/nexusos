@@ -21,10 +21,18 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.mcpserver.tools.base import Tool
 from mcp.server.mcpserver.utilities.func_metadata import func_metadata
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from nexusos import __version__
 from nexusos.core.errors import NexusOSError
+from nexusos.core.limits import (
+    MAX_BROWSE_LIMIT,
+    MAX_CONTEXT_SIBLING_LIMIT,
+    MAX_RECENT_LIMIT,
+    MAX_SEARCH_LIMIT,
+    MAX_SNIPPET_TOKENS,
+    MIN_LIMIT,
+)
 from nexusos.core.models import NexusOSConfig
 from nexusos.services.index_service import index_workspace
 from nexusos.services.navigation_service import (
@@ -70,15 +78,15 @@ class SearchArgs(_StrictArgs):
     """Arguments for the ``search`` tool."""
 
     term: str
-    limit: int = DEFAULT_LIMIT
-    snippet_tokens: int = 200
+    limit: int = Field(default=DEFAULT_LIMIT, ge=MIN_LIMIT, le=MAX_SEARCH_LIMIT)
+    snippet_tokens: int = Field(default=200, ge=MIN_LIMIT, le=MAX_SNIPPET_TOKENS)
 
 
 class BrowseArgs(_StrictArgs):
     """Arguments for the ``browse`` tool."""
 
     collection: str | None = None
-    limit: int | None = None
+    limit: int | None = Field(default=None, ge=MIN_LIMIT, le=MAX_BROWSE_LIMIT)
 
 
 class ReadArgs(_StrictArgs):
@@ -92,7 +100,7 @@ class ReadArgs(_StrictArgs):
 class RecentArgs(_StrictArgs):
     """Arguments for the ``recent`` tool."""
 
-    limit: int = DEFAULT_RECENT_LIMIT
+    limit: int = Field(default=DEFAULT_RECENT_LIMIT, ge=MIN_LIMIT, le=MAX_RECENT_LIMIT)
 
 
 class LinksArgs(_StrictArgs):
@@ -105,7 +113,7 @@ class ContextArgs(_StrictArgs):
     """Arguments for the ``context`` tool."""
 
     item: str
-    sibling_limit: int = DEFAULT_LIMIT
+    sibling_limit: int = Field(default=DEFAULT_LIMIT, ge=MIN_LIMIT, le=MAX_CONTEXT_SIBLING_LIMIT)
 
 
 class StatusArgs(_StrictArgs):

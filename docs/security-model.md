@@ -14,9 +14,10 @@ NexusOS is a **local, read-only** memory kernel. Attack surface:
 
 | Threat | Mitigation |
 |--------|-----------|
-| Symlink escape | `check_symlink_escape()` resolves all symlinks, rejects external targets |
+| Symlink escape | `check_symlink_escape()` / `find_symlink_escapes()` resolve all symlinks, reject external targets; wired into `nexusos doctor` and `nexusos init --adopt` (F-07 resolved) |
+| Index read-path TOCTOU | `read_source_text_safe()` re-validates the boundary immediately before reading and opens with `O_NOFOLLOW` where supported (F-03 resolved) |
 | Path traversal | `validate_within_workspace()` enforces resolved-path boundary |
-| Denied paths | `NEXUSOS_DENY_PATHS` + built-in forbidden prefixes |
+| Denied paths | `NEXUSOS_DENY_PATHS` (absolute-only; relative entries ignored with a warning) + built-in forbidden prefixes (F-05 resolved) |
 | Source mutation | Read-only contract; integration tests verify byte-for-byte |
 | Secret leakage | Secret-pattern env vars excluded from `--effective` display |
 | Nested workspaces | Ancestor + descendant checks on init |

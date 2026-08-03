@@ -161,8 +161,10 @@ the retrieval path.
 ### Explicit network boundary
 
 Core workflows require no network. Local servers bind to loopback by default. A
-non-loopback bind is an operator override and remains inside the known alpha security
-boundary documented in [../SECURITY.md](../SECURITY.md).
+non-loopback bind is an operator override: the token-protected inspection API warns and
+proceeds, while the unauthenticated MCP Streamable HTTP surface refuses the bind unless
+`--allow-non-loopback` / `NEXUSOS_ALLOW_NON_LOOPBACK=1` is set (F-08 resolved). Details
+remain inside the security boundary documented in [../SECURITY.md](../SECURITY.md).
 
 ## Interfaces
 

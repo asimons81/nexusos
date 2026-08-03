@@ -20,6 +20,7 @@ from nexusos import __version__
 from nexusos.core.config import load_config_effective
 from nexusos.core.path_safety import find_nearest_workspace_root
 from nexusos.mcp.server import build_server
+from nexusos.services.serve_service import loopback_bind_policy
 
 
 def _resolve_workspace(explicit: str | None) -> Path:
@@ -77,6 +78,17 @@ def main(argv: list[str] | None = None) -> None:
     # server.run() installs its own anyio event loop, so this must be called
     # from a fresh sync context (not inside an existing asyncio loop).
     if config.mcp_transport == "streamable-http":
+        # F-08: refuse a non-loopback bind for the unauthenticated MCP
+        # endpoint unless the operator explicitly opts in via env var.
+        if not loopback_bind_policy(config.server_host):
+            print(
+                "nexusos-mcp: error: refusing to bind MCP Streamable HTTP to "
+                f"non-loopback host {config.server_host!r}. The endpoint is "
+                "unauthenticated and includes the index write tool; set "
+                "NEXUSOS_ALLOW_NON_LOOPBACK=1 to override.",
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
         server.run(
             transport="streamable-http",
             host=config.server_host,

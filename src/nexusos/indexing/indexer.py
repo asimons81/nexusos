@@ -13,6 +13,7 @@ from pathlib import Path  # noqa: TC003
 from typing import Any
 
 from nexusos.core.models import NexusOSConfig
+from nexusos.core.path_safety import read_source_text_safe
 from nexusos.discovery.scanner import scan_workspace
 from nexusos.indexing.chunker import ChunkCandidate, chunk_document
 from nexusos.indexing.graph import resolve_links
@@ -174,7 +175,9 @@ def _index_pass(
         try:
             discovered = current_paths[np]
             file_path = workspace_root / discovered.relative_path
-            source_text = file_path.read_text(encoding="utf-8")
+            # F-03: re-check the boundary immediately before reading so a file
+            # swapped for an escaping symlink between scan and read is refused.
+            source_text = read_source_text_safe(file_path, workspace_root)
         except Exception:
             failed += 1
             continue

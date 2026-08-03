@@ -61,9 +61,11 @@ Defaults:
 The bind address and port are configured through `[server]` or corresponding environment
 variables. Loopback is the supported default.
 
-A non-loopback bind is an explicit operator override. NexusOS is not an internet-facing
-multi-user service and does not provide a complete remote authentication, authorization,
-or TLS layer. See [../SECURITY.md](../SECURITY.md).
+A non-loopback bind is refused for the unauthenticated MCP endpoint unless the operator
+explicitly opts in with `--allow-non-loopback` or `NEXUSOS_ALLOW_NON_LOOPBACK=1` (F-08
+resolved). NexusOS is not an internet-facing multi-user service and does not provide a
+complete remote authentication, authorization, or TLS layer. See
+[../SECURITY.md](../SECURITY.md).
 
 ## MCP configuration
 

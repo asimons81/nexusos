@@ -220,8 +220,11 @@ The current contract includes:
 - Host validation, Origin checks, and a per-process token for the inspection API
 
 The inspection API and MCP Streamable HTTP are separate surfaces with different security
-contracts. A non-loopback bind is an operator decision, not a claim that NexusOS is an
-internet-facing authenticated service.
+contracts. The inspection API is token-protected and warns on a non-loopback bind; MCP
+Streamable HTTP is unauthenticated and refuses a non-loopback bind unless the operator
+explicitly opts in with `--allow-non-loopback` / `NEXUSOS_ALLOW_NON_LOOPBACK=1`. A
+non-loopback bind is not a claim that NexusOS is an internet-facing authenticated
+service.
 
 Review [SECURITY.md](SECURITY.md) and the active hardening work in
 [ROADMAP.md](ROADMAP.md) before using NexusOS outside the supported local boundary.

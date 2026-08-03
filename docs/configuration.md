@@ -94,12 +94,11 @@ warn_empty_docs = true
 
 | Key | Default | Meaning |
 |---|---:|---|
-| `max_results` | `50` | Default result limit |
-| `snippet_length` | `200` | Search excerpt length passed to retrieval |
+| `max_results` | `50` | Default result limit (validated range `1..500`) |
+| `snippet_length` | `200` | Search excerpt length passed to retrieval (validated range `1..10000`) |
 
-> [!WARNING]
-> The current alpha validates these values as integers but does not yet enforce complete
-> safe ranges. This is tracked as finding `F-06` and roadmap task `A3-01`.
+`max_results` and `snippet_length` are validated against the same shared bounds as the
+CLI/MCP surfaces (F-06 resolved); out-of-range values fail configuration load.
 
 ### `[server]`
 
@@ -109,7 +108,9 @@ warn_empty_docs = true
 | `port` | `8765` | Bind port |
 
 Loopback is the supported default. A non-loopback host is an explicit operator override;
-review [../SECURITY.md](../SECURITY.md) before using one.
+review [../SECURITY.md](../SECURITY.md) before using one. MCP Streamable HTTP refuses a
+non-loopback bind unless `--allow-non-loopback` or `NEXUSOS_ALLOW_NON_LOOPBACK=1` is set
+(F-08 resolved).
 
 ### `[mcp]`
 

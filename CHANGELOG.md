@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+### Fixed
+
+- **F-03 (P0)** — Path-safety TOCTOU in the indexer read path: a discovered
+  file swapped for a symlink to an outside file between scan and read was
+  ingested into the index. Reads now re-resolve the path against the
+  workspace boundary immediately before opening (`read_source_text_safe`),
+  refuse escaping symlinks, and open with `O_NOFOLLOW` where the platform
+  supports it. Regression test proves the outside content is never indexed.
+- **F-05 (P0)** — Relative `NEXUSOS_DENY_PATHS` entries resolved against the
+  process CWD, making the deny list non-deterministic and silently missing
+  intended targets. Relative entries are now ignored with a one-time warning;
+  only absolute entries match. SECURITY.md documents absolute-only semantics.
+- **F-06 (P0)** — Unbounded/negative result limits: `search --limit -1`
+  returned every row (SQLite `LIMIT -1`), `browse --limit -1` truncated
+  unexpectedly, and MCP accepted any limit. Search, browse, recent, context,
+  MCP argument schemas, and `[search]` config values now validate against
+  shared bounds (`[1, 500]` search results, `[1, 1000]` browse, `[1, 100]`
+  recent/context, `[1, 10000]` snippet tokens) consistently across
+  CLI/config/JSON/MCP.
+- **F-07 (P0)** — `check_symlink_escape` was dead code in production paths.
+  The defense is now live: `nexusos doctor` reports escaping symlinks as a
+  warning check, and `nexusos init --adopt` refuses a tree whose symlinks
+  resolve outside the workspace boundary.
+- **F-08 (P0)** — Non-loopback bind policy for the unauthenticated MCP
+  Streamable HTTP surface: the CLI and `python -m nexusos.mcp` now refuse a
+  non-loopback bind (the endpoint is unauthenticated and includes the index
+  write tool) unless the operator passes `--allow-non-loopback` or sets
+  `NEXUSOS_ALLOW_NON_LOOPBACK=1`. The token-protected kernel-data HTTP
+  transport keeps its warn-and-proceed behavior. Docs and SECURITY.md
+  updated.
+- Added 17 regression/adversarial tests covering every A3-01 finding
+  (`tests/security/test_a3_01_release_fixes.py`); full suite: 435 passing.
+
 ### Changed
 
 - Replaced the feature-bucket roadmap with an executable release train for

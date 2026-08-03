@@ -34,7 +34,11 @@ from nexusos.services.navigation_service import (
     recent_documents,
 )
 from nexusos.services.search_service import SearchReport, search_workspace
-from nexusos.services.serve_service import create_server, is_loopback_host
+from nexusos.services.serve_service import (
+    create_server,
+    is_loopback_host,
+    loopback_bind_policy,
+)
 from nexusos.services.status_service import get_status
 from nexusos.services.vault_lint_service import (
     print_vault_lint_report,
@@ -441,6 +445,12 @@ def serve(
         help="Transport: 'http' (kernel-data HTTP server), 'stdio' (MCP over stdio), "
         "'streamable-http' (MCP over loopback HTTP)",
     ),
+    allow_non_loopback: bool = typer.Option(
+        False,
+        "--allow-non-loopback",
+        help="Allow binding MCP Streamable HTTP to a non-loopback host (F-08: "
+        "unsafe for an unauthenticated endpoint with a write tool)",
+    ),
 ) -> None:
     """Serve a NexusOS workspace over HTTP or the Model Context Protocol.
 
@@ -450,11 +460,23 @@ def serve(
     stdin/stdout for MCP clients. ``--transport streamable-http`` starts
     the MCP server over loopback-only Streamable HTTP (default
     127.0.0.1:8765). All transports shut down cleanly on SIGINT/SIGTERM.
+
+    Security policy (F-08): the MCP Streamable HTTP endpoint is
+    unauthenticated and includes the index write tool, so a non-loopback
+    bind is refused unless ``--allow-non-loopback`` is passed (or
+    NEXUSOS_ALLOW_NON_LOOPBACK=1 is set). The kernel-data HTTP transport
+    (token-protected) warns and proceeds.
     """
     ws_root = _resolve_workspace(workspace)
 
     if transport in ("stdio", "streamable-http"):
-        _serve_mcp(ws_root, transport=transport, host=host, port=port)
+        _serve_mcp(
+            ws_root,
+            transport=transport,
+            host=host,
+            port=port,
+            allow_non_loopback=allow_non_loopback,
+        )
         return
 
     if transport != "http":
@@ -533,6 +555,7 @@ def _serve_mcp(
     transport: str,
     host: str | None = None,
     port: int | None = None,
+    allow_non_loopback: bool = False,
 ) -> None:
     """Run the MCP server for a workspace (stdio or streamable-http)."""
     try:
@@ -570,6 +593,18 @@ def _serve_mcp(
         if not (0 <= bind_port <= 65535):
             typer.echo(
                 f"Error: invalid port {bind_port}; port must be between 0 and 65535",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        # F-08: the streamable-http endpoint is unauthenticated and exposes
+        # the index write tool; refuse non-loopback binds unless the operator
+        # explicitly opts in with --allow-non-loopback / the env var.
+        if not loopback_bind_policy(bind_host, allow_non_loopback=allow_non_loopback):
+            typer.echo(
+                f"Error: refusing to bind MCP Streamable HTTP to non-loopback host "
+                f"{bind_host!r}. The endpoint is unauthenticated and includes the "
+                "index write tool; pass --allow-non-loopback (or set "
+                "NEXUSOS_ALLOW_NON_LOOPBACK=1) to override.",
                 err=True,
             )
             raise typer.Exit(code=2)

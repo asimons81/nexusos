@@ -9,6 +9,7 @@ from pathlib import Path  # noqa: TC003
 from typing import Any, get_origin
 
 from nexusos.core.errors import ConfigError
+from nexusos.core.limits import MAX_SEARCH_LIMIT, MAX_SNIPPET_TOKENS, MIN_LIMIT
 from nexusos.core.models import DEFAULT_CONFIG, NexusOSConfig
 
 # Map TOML [section].key → model field name
@@ -189,6 +190,26 @@ def _env_override_map() -> dict[str, Any]:
     return overrides
 
 
+def _validate_config_ranges(config: NexusOSConfig) -> None:
+    """Validate numeric config fields against shared bound limits (F-06).
+
+    Search limits are the F-06 surface: ``search_max_results`` and
+    ``search_snippet_length`` must stay within the same bounds enforced by
+    the CLI, JSON, and MCP paths, so configuration can never request an
+    unbounded result set. Raises :class:`ConfigError` naming the field.
+    """
+    checks = (
+        ("search_max_results", config.search_max_results, MAX_SEARCH_LIMIT),
+        ("search_snippet_length", config.search_snippet_length, MAX_SNIPPET_TOKENS),
+    )
+    for field_name, value, maximum in checks:
+        if value < MIN_LIMIT or value > maximum:
+            raise ConfigError(
+                f"{field_name} must be between {MIN_LIMIT} and {maximum}; got {value}",
+                exit_code=2,
+            )
+
+
 def load_config(config_path: Path, *, apply_env: bool = True) -> NexusOSConfig:
     """Load the full configuration from a nexusos.toml path."""
     toml_data = load_toml(config_path)
@@ -205,6 +226,7 @@ def load_config(config_path: Path, *, apply_env: bool = True) -> NexusOSConfig:
             if key in NexusOSConfig.model_fields:
                 setattr(merged, key, value)
 
+    _validate_config_ranges(merged)
     return merged
 
 

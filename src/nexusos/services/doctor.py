@@ -219,6 +219,32 @@ def _check_nested_workspaces(root: Path) -> DoctorCheck:
     )
 
 
+def _check_symlink_escape(root: Path) -> DoctorCheck:
+    """Verify no symlink inside the workspace resolves outside it.
+
+    F-07: ``check_symlink_escape`` was dead code in production paths. Doctor
+    now surfaces escaping symlinks (index-time policy still governs ingestion;
+    this is the health visibility boundary). Read-only and safe for any tree.
+    """
+    from nexusos.core.path_safety import find_symlink_escapes
+
+    escapes = find_symlink_escapes(root)
+    if escapes:
+        paths = ", ".join(str(e) for e in escapes[:5])
+        detail = f"{len(escapes)} escaping symlink(s): {paths}"
+        return DoctorCheck(
+            check="symlink_escape",
+            status=CheckStatus.WARNING,
+            message="Symlink(s) resolve outside the workspace boundary",
+            detail=detail,
+        )
+    return DoctorCheck(
+        check="symlink_escape",
+        status=CheckStatus.PASS,
+        message="No symlinks escape the workspace boundary",
+    )
+
+
 def _check_source_dirs_untouched(root: Path) -> DoctorCheck:
     """Verify source directories are still intact (read-only contract)."""
     check_dirs = [
@@ -307,6 +333,7 @@ def run_doctor(
         checks.append(_check_config_parsable(root))
         checks.append(_check_template_files(root))
         checks.append(_check_nested_workspaces(root))
+        checks.append(_check_symlink_escape(root))
         checks.append(_check_source_dirs_untouched(root))
         checks.append(_check_source_dirs_readable(root))
 
