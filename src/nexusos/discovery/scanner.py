@@ -276,7 +276,7 @@ def scan_workspace(
                 warnings.append(
                     {
                         "type": "symlink_escape",
-                        "message": f"symlink escapes workspace: {normalized} → {real}",
+                        "message": f"symlink escapes workspace: {normalized} -> {real}",
                     }
                 )
                 continue

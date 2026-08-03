@@ -40,6 +40,18 @@ _KNOWN_ENV_NAMES: frozenset[str] = frozenset(
     f"NEXUSOS_{f.upper()}" for f in NexusOSConfig.model_fields
 )
 
+# Documented operational NEXUSOS_* variables that are consumed outside the
+# configuration model (path safety, serve policy). They are intentionally NOT
+# configuration fields — they never become model attributes — but they ARE
+# documented public environment variables, so the loader must not report them
+# as "unknown NEXUSOS_* variable" the way it does for genuine typos.
+_OPERATIONAL_ENV_NAMES: frozenset[str] = frozenset(
+    {
+        "NEXUSOS_DENY_PATHS",
+        "NEXUSOS_ALLOW_NON_LOOPBACK",
+    }
+)
+
 # Build the known-keys lookup for strict-key validation (collections is open).
 _KNOWN_KEYS_BY_SECTION: dict[str, frozenset[str]] = {}
 for _section in _KNOWN_SECTIONS:
@@ -181,6 +193,11 @@ def _env_override_map() -> dict[str, Any]:
             continue
         config_key = key[len("NEXUSOS_") :].lower()
         if config_key not in NexusOSConfig.model_fields:
+            if key in _OPERATIONAL_ENV_NAMES:
+                # Documented operational variable consumed elsewhere (e.g.
+                # NEXUSOS_DENY_PATHS, NEXUSOS_ALLOW_NON_LOOPBACK). Not a
+                # configuration field — skip silently.
+                continue
             print(
                 f"nexusos: warning: unknown NEXUSOS_* variable '{key}' — ignored",
                 file=sys.stderr,
