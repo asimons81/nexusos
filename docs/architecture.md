@@ -12,7 +12,7 @@ indexing (ids, models, schema, migrations, database, lock, kernel)
 services (doctor, index, status, search, navigation, lint)
     ↓
 cli (Typer + Rich adapter)
-mcp (MCP server over stdio)
+mcp (MCP server over stdio / streamable-http)
 ```
 
 - **core** — Zero UI dependencies. Pure Python types, validation, path logic.
@@ -20,7 +20,7 @@ mcp (MCP server over stdio)
 - **indexing** — Internal Phase 2 persistence kernel. Deterministic workspace-scoped IDs, SQLite schema + migrations, transactional storage, exclusive-writer lock, and the `IndexKernel` API (add/update/upsert/remove documents, deterministic candidate lookup, index-run records). Depends on core and workspace; no CLI or MCP imports.
 - **services** — Reusable business logic, callable from CLI or MCP.
 - **cli** — Thin adapter. Typer commands → service calls → output formatting.
-- **mcp** — Top layer (sibling of `cli`). Wraps the service layer as MCP tools over stdio; never imports core internals or indexing directly. The CLI exposes it via `nexusos mcp` (lazy import) and `python -m nexusos.mcp` runs it directly.
+- **mcp** — Top layer (sibling of `cli`). Wraps the service layer as MCP tools over stdio or loopback-only Streamable HTTP; never imports core internals or indexing directly. The CLI exposes it via `nexusos mcp` (lazy import), `python -m nexusos.mcp` runs it directly, and `nexusos serve --transport stdio|streamable-http` serves the same server.
 
 ## Design Principles
 
@@ -46,14 +46,14 @@ SQLite FTS5 only. Results are reproducible and source-cited. No LLM in the retri
 ## MCP Server
 
 `nexusos mcp` (or `python -m nexusos.mcp --workspace PATH`) starts an MCP
-server over stdio exposing the workspace index as tools: `search`, `browse`,
-`read`, `recent`, `links`, `context`, and `index`. Every tool advertises a
-strict schema (`additionalProperties: false`) and returns JSON-serializable
-data in both text and structured content. Errors surface as MCP tool errors
-(`isError: true`) instead of crashing the server.
+server over stdio exposing the workspace index as tools: `status`, `search`,
+`browse`, `read`, `recent`, `links`, `context`, and `index`. The same server
+is served over loopback-only Streamable HTTP via `nexusos serve --transport
+streamable-http` (default 127.0.0.1:8765, endpoint `/mcp`). Every tool
+advertises a strict schema (`additionalProperties: false`) and returns
+JSON-serializable data in both text and structured content. Errors surface
+as MCP tool errors (`isError: true`) instead of crashing the server.
 
 ## Not Yet Implemented
 
-- Streamable HTTP / SSE transports for MCP (stdio is the only supported transport today)
-- Linting and staleness detection for workspace vaults (the `lint` command runs the project's own dev tooling; a vault linter is a future product feature)
 - Embeddings or vector database

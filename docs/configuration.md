@@ -38,16 +38,18 @@ warn_empty_docs = true
 ## MCP Server
 
 The MCP server (`nexusos mcp` / `python -m nexusos.mcp --workspace PATH`)
-speaks the Model Context Protocol over stdio. MCP clients launch it as a
-subprocess and connect via JSON-RPC; nothing is printed to stdout except
-protocol frames.
+speaks the Model Context Protocol over stdio (default). MCP clients launch
+it as a subprocess and connect via JSON-RPC; nothing is printed to stdout
+except protocol frames. `nexusos serve --transport streamable-http` serves
+the same server over loopback-only Streamable HTTP (default 127.0.0.1:8765,
+endpoint `/mcp`).
 
 Configure it under `[mcp]`:
 
 ```toml
 [mcp]
 enabled = true          # set false to refuse MCP connections for this workspace
-transport = "stdio"     # stdio is the only supported transport today
+transport = "stdio"     # stdio | streamable-http
 ```
 
 When `enabled = false`, the server refuses to start and exits non-zero, so
@@ -99,7 +101,3 @@ nexusos config show                  # Raw nexusos.toml values
 nexusos config show --effective      # Resolved with env overrides
 nexusos config show --json           # JSON output
 ```
-
-## Not Yet Implemented
-
-The `[server]` and `[lint]` configuration keys exist in the model but are inert until the server and linting phases complete. The indexing and search keys are live: `index_path` (default `.nexusos/index.sqlite3`) is used by the internal indexing kernel, which validates the path stays inside the workspace; `search.max_results` and `search.snippet_length` drive the `nexusos search` command (`--limit` overrides `max_results` on the CLI). The `[mcp]` keys are live: `enabled` gates the `nexusos mcp` server and `transport` selects the transport (only `stdio` today).

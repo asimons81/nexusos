@@ -1,5 +1,9 @@
 # Roadmap
 
+> Current release: **v0.1.0-alpha.2** (2026-08-02). The alpha milestones
+> below are scope buckets; their work all shipped in that single release.
+> v0.1.0 (stable) is in progress.
+
 ## v0.1.0-alpha.1 — Safety Shell + Workspace Foundation
 
 **Status: COMPLETE**

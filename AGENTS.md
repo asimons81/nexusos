@@ -22,7 +22,7 @@ indexing (ids, models, schema, migrations, database, lock, kernel)
 services (doctor, index, status, search, navigation)
     ↓
 cli (main) — Typer + Rich, NOT imported by core
-mcp (server) — MCP over stdio, imports services only
+mcp (server) — MCP over stdio / streamable-http, imports services only
 ```
 
 Core must not import Typer, Rich, or MCP packages. Indexing must not import CLI or MCP packages. The `mcp` package is a top layer (sibling of `cli`): it imports `services` only, never `core` internals or `indexing` directly. The CLI may import `mcp` lazily to expose the `nexusos mcp` command.
