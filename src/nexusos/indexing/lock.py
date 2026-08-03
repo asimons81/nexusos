@@ -35,10 +35,43 @@ def _iso_now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _pid_alive_windows(pid: int) -> bool:
+    """Return process liveness on Windows without generating a console signal.
+
+    ``os.kill(pid, 0)`` is a harmless existence probe on POSIX. On Windows,
+    signal value 0 is ``CTRL_C_EVENT`` and can interrupt the test runner or
+    another console process. Querying the process handle avoids that side
+    effect while retaining the stale-lock recovery contract.
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    process_query_limited_information = 0x1000
+    still_active = 259
+    access_denied = 5
+
+    kernel32: Any = ctypes.WinDLL("kernel32", use_last_error=True)
+    handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+    if not handle:
+        return ctypes.get_last_error() == access_denied
+
+    try:
+        exit_code = wintypes.DWORD()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+            # A process we cannot query after opening should be treated as
+            # alive. Never reclaim a lock based on an uncertain probe.
+            return True
+        return exit_code.value == still_active
+    finally:
+        kernel32.CloseHandle(handle)
+
+
 def _pid_alive(pid: int) -> bool:
     """Return True when the PID refers to a living process on this host."""
     if pid <= 0:
         return False
+    if os.name == "nt":
+        return _pid_alive_windows(pid)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
