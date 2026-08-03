@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0-alpha.2 (unreleased)
+## 0.1.0-alpha.2 (2026-08-02)
 
 ### Added
 
@@ -30,6 +30,20 @@
 - MCP `status` tool completing the Phase 5 tool list (workspace index status, counts, staleness reasons)
 - 24 new unit/integration/security tests for the vault linter, lint CLI, serve transports, and MCP status tool (full suite: 355 passing)
 - Documentation: docs/mcp.md, docs/linting.md; ROADMAP updated to mark alpha.2/3/4 complete
+
+### Fixed
+
+- **F1 (HIGH)** — O(n³) heading-path hang: indexing a Markdown file with thousands of headings froze `nexusos index` while holding the exclusive writer lock. Heading hierarchy now builds in a single-pass O(n) walk (shared by indexer, chunker, and parser); a 5,000-heading file indexes in under a second.
+- **F2 (HIGH)** — Silent unreadable-directory skip: an unreadable source directory was silently skipped, so indexing could report success with zero files and zero warnings. Discovery now surfaces `unreadable_directory` warnings and `nexusos doctor` fails its `source_dirs_readable` check when one exists.
+- **F-01 (MED)** — Temp-file symlink overwrite: atomic writes used a predictable temp path, allowing a pre-staged symlink to cause an arbitrary file write. Writes now use unpredictable `tempfile.mkstemp` names + `os.replace()`; `init --adopt` refuses a `.nexusos` that is a symlink, a regular file, or already seeded.
+- **F-02 (MED)** — Host-header / DNS-rebinding exfiltration over the serve HTTP transport: non-loopback Host headers are rejected (403), all `/api/*` reads require a per-process `X-NexusOS-Token` (constant-time comparison), foreign Origins are rejected, and the bundled UI receives the token at serve time.
+- **FD1 (MED)** — Stale-index detection missed content-only edits: `status`/`lint` now compare mtime/size signatures instead of path sets only.
+- **FD2 (MED)** — Root-level files excluded by the default `**/*.md` include: globstar now matches zero-or-more directories, so root-level files (README.md, root notes) are discovered and indexed.
+- **F3 (MED)** — Raw CLI tracebacks on `config show` / `init` / `serve`: errors now print clean `Error: ...` messages with correct exit codes (1/2) instead of Rich traceback panels.
+- **F4 (MED)** — Read-only index database mislabeled as corrupt: read-only errors are detected as permission errors, read commands open with a mode=ro URI, and behind-schema DBs raise a clear "run `nexusos index`" message.
+- **F5 (MED)** — `NEXUSOS_*` env override type validation: values are validated against model field annotations at load time; `ConfigError` names the offending variable.
+- **F7 (MED)** — Discovery warnings counted but never surfaced: warning details (type/path/message) are persisted in `index_runs.warnings_json` (schema v2) and surfaced in human and JSON index output.
+- 44 regression test functions added for the fixes above (full suite: 414 passing; ruff check/format and mypy clean).
 
 ### Not yet implemented
 

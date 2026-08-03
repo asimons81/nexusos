@@ -6,10 +6,10 @@ NexusOS is an open-source, local-first knowledge operating system for AI agents.
 
 ## Status: Pre-release
 
-Version **0.1.0-alpha.1** implements the safety shell and workspace
-foundation; the **alpha.2** work adds the indexing kernel (deterministic
-IDs, SQLite schema v1 with FTS5, transactional persistence,
-exclusive-writer lock) plus `index`/`status`. Search and content navigation
+Version **0.1.0-alpha.2** implements the safety shell and workspace
+foundation, the indexing kernel (deterministic IDs, SQLite schema v1 with
+FTS5, transactional persistence, exclusive-writer lock), plus
+`index`/`status`. Search and content navigation
 (`search`, `browse`, `read`, `recent`, `links`, `context`) are implemented
 on top of the index, and an MCP server (`nexusos mcp`, plus
 `nexusos serve --transport stdio|streamable-http`) exposes them to MCP
