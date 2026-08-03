@@ -8,6 +8,28 @@ from pathlib import Path
 
 import pytest
 
+_POSIX_PERMISSION_TESTS = {
+    "test_database_regression_readonly_db_message",
+    "test_database_regression_readonly_db_permission_error_type",
+}
+
+
+def pytest_collection_modifyitems(_config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Skip chmod-enforcement tests on Windows.
+
+    Windows does not implement POSIX directory write permissions through
+    ``Path.chmod()``, so those tests cannot exercise the intended failure
+    boundary there. Windows still runs the remaining database, indexing, and
+    security suite.
+    """
+    if os.name != "nt":
+        return
+
+    marker = pytest.mark.skip(reason="requires POSIX chmod permission enforcement")
+    for item in items:
+        if item.name in _POSIX_PERMISSION_TESTS:
+            item.add_marker(marker)
+
 
 @pytest.fixture
 def temp_workspace() -> Path:
