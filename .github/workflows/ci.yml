@@ -7,6 +7,12 @@ on:
     branches: [main]
 
 jobs:
+  # Full supported matrix (ROADMAP A3-02): every OS x Python leg runs the
+  # complete contract — unit, integration, and security tests — plus lint,
+  # format, type-check, and the version smoke test. Integration tests are
+  # intentionally not split out of the matrix: they exercise CLI/service/MCP
+  # flows that must stay green on all supported platforms. Platform-specific
+  # skips, if any are ever needed, must be narrow, justified, and documented.
   test:
     name: Test (Python ${{ matrix.python-version }} on ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -39,11 +45,8 @@ jobs:
       - name: Type check
         run: uv run mypy src
 
-      - name: Unit tests
-        run: uv run pytest tests/unit/ -q
-
-      - name: Security tests
-        run: uv run pytest tests/security/ -q
+      - name: Test (full suite)
+        run: uv run pytest -q
 
       - name: Smoke test
         run: |
