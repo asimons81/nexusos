@@ -1,5 +1,9 @@
 # NexusOS v0.1.0-alpha.2 — Release Notes
 
+> **Current v0.1 notes:** see [docs/releases/v0.1.md](docs/releases/v0.1.md) for
+> the cumulative v0.1 release-train notes, including the A3-01 hardening fixes
+> (F-03/F-05/F-06/F-07/F-08) that landed on `main` after this alpha.2 release.
+
 **Release:** 0.1.0-alpha.2
 **Baseline:** d8f6950 (v0.1.0-alpha.1) → `62b00f5`
 **Status:** Release candidate — all review findings fixed, test gate green
@@ -80,6 +84,10 @@ that pin each one.
 
 ## Known issues
 
+> Note: the F-03/F-05/F-06/F-07/F-08 items below were **resolved by the A3-01
+> hardening pass** after this alpha.2 release (commit `799ecc5`, on `main`).
+> See [docs/releases/v0.1.md](docs/releases/v0.1.md) for the current status.
+
 Not implemented in this release (unchanged from alpha.1):
 
 - Embeddings / vector database
@@ -90,17 +98,22 @@ Accepted residual hardening items from the security review (LOW/INFO; tracked
 for future releases):
 
 - TOCTOU symlink-swap window between discovery and read within an untrusted
-  workspace (F-03)
+  workspace (F-03) — **resolved in `799ecc5` via `read_source_text_safe`**
 - Relative `NEXUSOS_DENY_PATHS` entries resolve against the current working
-  directory (F-05)
-- Unbounded response limits on the serve HTTP transport (F-06)
-- A dead symlink-escape helper remains in `core/path_safety.py` (F-07)
+  directory (F-05) — **resolved: absolute-only entries, relative ignored**
+- Unbounded response limits on the serve HTTP transport (F-06) — **resolved:
+  shared range validation**
+- A dead symlink-escape helper remains in `core/path_safety.py` (F-07) —
+  **resolved: wired into `doctor` and `init --adopt`**
 - `serve --host` may still bind a non-loopback interface, with a loud warning
-  (F-08)
+  (F-08) — **resolved: unauthenticated MCP Streamable HTTP refuses non-loopback
+  unless explicitly allowed**
 
 ## Verification
 
 - **414 tests passing** (up from 363 at alpha.1 re-verification), zero failures
+  — the alpha.3 line later grew to **435 passing, 1 skipped** after the A3-01
+  hardening tests
 - `ruff check` clean, `ruff format --check` clean, `mypy` strict clean
 - Regression tests added for every fix, including real-CLI (L4) reproductions
   for F1, F2, F-01, F-02, F3, and F4/F5/F7
