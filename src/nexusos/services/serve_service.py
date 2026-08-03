@@ -331,7 +331,8 @@ class _NexusOSHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
-        # The root page embeds the API token; never let it be cached.
+        # Loopback root pages may embed the API token; never let any page be
+        # cached (A3-07 F-10: non-loopback pages do not contain the token).
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(data)
