@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Added
+
+- **A3-05 public contract freeze**: `docs/contracts.md` inventories every
+  CLI command/option, exit code, configuration key, environment variable,
+  JSON response shape, and MCP tool schema. `tests/contracts/` (142 tests)
+  locks the advertised surface — help text, exit codes, JSON parseability
+  and shape, config defaults/precedence/validation, and MCP schemas/errors.
+  CI runs the contract suite on every push/PR.
+- The configuration loader now recognizes the documented operational
+  environment variables `NEXUSOS_DENY_PATHS` and `NEXUSOS_ALLOW_NON_LOOPBACK`
+  as known names, so they no longer trigger the spurious
+  "unknown NEXUSOS_* variable" warning. Genuinely unknown `NEXUSOS_*` names
+  still warn and are ignored.
+
 ### Fixed
 
 - **F-03 (P0)** — Path-safety TOCTOU in the indexer read path: a discovered

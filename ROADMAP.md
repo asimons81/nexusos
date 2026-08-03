@@ -134,6 +134,11 @@ Prove the source distribution and wheel, not only the source checkout.
 
 ## A3-05: Freeze CLI, configuration, and exit-code contracts
 
+> **Status:** Implemented for `v0.1.0-alpha.3` (kanban card `t_3a5ee653`).
+> Deliverables: `docs/contracts.md` (full inventory), `tests/contracts/`
+> (142 contract tests), CI step. Evidence in the card and
+> `docs/release/v0.1-checklist.md`.
+
 **Scope**
 
 Audit the public interface that users and agents will depend on.

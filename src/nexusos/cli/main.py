@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import signal
@@ -136,10 +137,13 @@ def _print_doctor_report(report: DoctorReport) -> None:
     table.add_column("Message")
 
     for check in report.checks:
+        # ASCII-safe status labels: Windows cp1252 (charmap) consoles cannot
+        # encode U+2713/U+26A0/U+2717 glyphs, crashing the CLI (A3-05
+        # contract tests shell out to the real CLI).
         icons = {
-            "pass": "[green]✓ PASS[/green]",
-            "warning": "[yellow]⚠ WARN[/yellow]",
-            "fail": "[red]✗ FAIL[/red]",
+            "pass": "[green]PASS[/green]",
+            "warning": "[yellow]WARN[/yellow]",
+            "fail": "[red]FAIL[/red]",
         }
         table.add_row(check.check, icons[check.status], check.message)
 
@@ -517,7 +521,7 @@ def serve(
     try:
         server = create_server(ws_root, host=bind_host, port=bind_port)
     except (OSError, OverflowError) as exc:
-        typer.echo(f"Error: cannot bind {bind_host}:{bind_port} — {exc}", err=True)
+        typer.echo(f"Error: cannot bind {bind_host}:{bind_port} - {exc}", err=True)
         raise typer.Exit(code=1)
 
     actual_host, actual_port = (str(x) for x in server.server_address[:2])
@@ -651,7 +655,7 @@ def demo(
 ) -> None:
     """Run a scripted walkthrough of core features.
 
-    Creates a synthetic demo vault (init → seed → index → status → doctor)
+    Creates a synthetic demo vault (init -> seed -> index -> status -> doctor)
     and prints the equivalent CLI commands as usage examples. The vault
     lives in a temporary directory unless --path is given.
     """
@@ -859,6 +863,15 @@ def _print_context(data: dict[str, object]) -> None:
 
 def main() -> None:
     """Entry point."""
+    # Windows consoles/CI pipes commonly use cp1252 (charmap), which cannot
+    # encode the Unicode symbols used in CLI output (✓, ⚠, ✗, →). Reconfigure
+    # stdio to UTF-8 with replacement so user-facing output never crashes on
+    # any platform (A3-05 contract finding: 'charmap' codec errors).
+    for _stream in (sys.stdout, sys.stderr):
+        # Streams without reconfigure (test capture) or already closed are fine.
+        with contextlib.suppress(AttributeError, ValueError):
+            if hasattr(_stream, "reconfigure"):
+                _stream.reconfigure(encoding="utf-8", errors="replace")
     try:
         app()
     except SystemExit:

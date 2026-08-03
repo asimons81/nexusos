@@ -134,6 +134,11 @@ format and can be recovered without NexusOS because they never left the filesyst
 Use `nexusos COMMAND --help` for the current option contract. Workspace commands detect
 the current workspace unless `--workspace` is supplied.
 
+The CLI commands, options, exit codes, configuration keys/environment variables, JSON
+shapes, and MCP tool schemas are frozen for the v0.1 train and inventoried in
+[docs/contracts.md](docs/contracts.md). `tests/contracts/` locks the surface; changes
+require a deliberate roadmap decision and changelog entry.
+
 ## MCP for agents
 
 Start NexusOS as a stdio MCP server:
@@ -290,6 +295,7 @@ Roadmap work should reference a task ID such as `A3-04` or `RC-03`. Agents must:
 | [docs/install.md](docs/install.md) | Supported environments, dependencies, install/upgrade, verified artifacts |
 | [docs/releases/v0.1.md](docs/releases/v0.1.md) | v0.1 release notes (features, fixes, known issues, verification) |
 | [docs/architecture.md](docs/architecture.md) | Layers, dependencies, and invariants |
+| [docs/contracts.md](docs/contracts.md) | Frozen CLI, config, JSON, exit-code, and MCP contracts |
 | [docs/configuration.md](docs/configuration.md) | TOML schema, environment variables, precedence |
 | [docs/mcp.md](docs/mcp.md) | MCP tools, transports, and client setup |
 | [docs/linting.md](docs/linting.md) | Workspace and developer lint modes |

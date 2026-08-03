@@ -7,6 +7,11 @@ status, and refresh derived state without editing source documents.
 The current implementation is `v0.1.0-alpha.2`. Client compatibility is part of the
 release-candidate validation plan in [../ROADMAP.md](../ROADMAP.md).
 
+> **Contract freeze (A3-05):** the MCP tool set, input schemas, bounds, and error
+> behavior are frozen for `v0.1.0-alpha.3` and locked by the contract test suite
+> (`tests/contracts/`). See [contracts.md](contracts.md) for the machine-readable
+> inventory of every tool, its schema, and its limits.
+
 ## Supported transports
 
 ### stdio
