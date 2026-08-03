@@ -63,14 +63,16 @@ def _read_until(
     proc: subprocess.Popen[str],
     needle: str,
     *,
-    timeout: float = 15.0,
+    timeout: float = 60.0,
 ) -> str:
     """Read ``proc`` stdout until ``needle`` appears, EOF, or timeout.
 
     Uses a daemon reader thread feeding a queue so the wait is strictly
     bounded: a silent-but-alive child must not block ``readline()`` (or the
     assert message's ``read()``) forever past the deadline. Returns all
-    output read so far.
+    output read so far. The default is generous (60s) because a cold
+    subprocess on a shared CI runner (macOS in particular) can take tens
+    of seconds to import and print its first line.
     """
     lines: queue.Queue[str | None] = queue.Queue()
 
