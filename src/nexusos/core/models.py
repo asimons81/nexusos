@@ -63,17 +63,17 @@ class NexusOSConfig(BaseModel):
     max_file_size_bytes: int = 10_485_760  # 10 MiB
     symlink_policy: str = "ignore"  # ignore | warn | deny
 
-    # Indexing (future)
+    # Indexing
     index_path: str = ".nexusos/index.sqlite3"
     chunk_max_chars: int = 2400
     chunk_overlap_chars: int = 200
     default_collection: str = "inbox"
 
-    # Search (future)
+    # Search
     search_max_results: int = 50
     search_snippet_length: int = 200
 
-    # Server (future)
+    # Server
     server_host: str = "127.0.0.1"
     server_port: int = 8765
 
@@ -145,11 +145,11 @@ class LintCheck(BaseModel):
 
 
 class LintReport(BaseModel):
-    """Aggregate result of running the kernel's static-analysis tooling.
+    """Aggregate result of repository static-analysis tooling.
 
-    ``nexusos lint`` is developer tooling: it runs the project's own
-    lint/type-check tools (ruff, mypy) over the kernel source. It is NOT the
-    workspace vault linter, which remains a future product feature.
+    ``nexusos lint`` without ``--workspace`` runs the project's own
+    lint/type-check tools over the source tree. Workspace vault linting is a
+    separate command mode with its own report models below.
     """
 
     repo_root: str
