@@ -1,10 +1,20 @@
-# Configuration
+# NexusOS Configuration
 
-## Configuration File
+Each workspace uses a `nexusos.toml` file at its root. Configuration is strict: unknown
+sections and misspelled keys fail with a clear error instead of being silently accepted.
 
-Workspaces use `nexusos.toml` at the workspace root.
+## Precedence
 
-Example:
+Effective values are resolved in this order, with later layers overriding earlier ones:
+
+1. built-in defaults
+2. values from `nexusos.toml`
+3. `NEXUSOS_*` environment variables
+4. CLI flags where a command exposes an override
+
+Not every setting has a CLI flag.
+
+## Complete example
 
 ```toml
 [workspace]
@@ -12,11 +22,22 @@ name = "my-knowledge-base"
 
 [files]
 include = ["**/*.md", "**/*.txt"]
-exclude = ["**/.nexusos/**", "**/.git/**"]
+exclude = [
+  "**/.nexusos/**",
+  "**/node_modules/**",
+  "**/__pycache__/**",
+  "**/.git/**",
+  "**/.direnv/**",
+]
 
 [limits]
-max_file_size_bytes = 10_485_760
+max_file_size_bytes = 10485760
 symlink_policy = "ignore"
+
+[indexing]
+chunk_max_chars = 2400
+chunk_overlap_chars = 200
+default_collection = "inbox"
 
 [search]
 max_results = 50
@@ -31,34 +52,171 @@ enabled = true
 transport = "stdio"
 
 [lint]
-max_file_size_bytes = 5_242_880
+max_file_size_bytes = 5242880
 warn_empty_docs = true
+
+[collections]
+"raw/articles/**" = "articles"
+"wiki/projects/**" = "projects"
 ```
 
-## MCP Server
+## Sections and keys
 
-The MCP server (`nexusos mcp` / `python -m nexusos.mcp --workspace PATH`)
-speaks the Model Context Protocol over stdio (default). MCP clients launch
-it as a subprocess and connect via JSON-RPC; nothing is printed to stdout
-except protocol frames. `nexusos serve --transport streamable-http` serves
-the same server over loopback-only Streamable HTTP (default 127.0.0.1:8765,
-endpoint `/mcp`).
+### `[workspace]`
 
-Configure it under `[mcp]`:
+| Key | Default | Meaning |
+|---|---:|---|
+| `name` | `"default"` | Human-readable workspace name |
+
+### `[files]`
+
+| Key | Default | Meaning |
+|---|---|---|
+| `include` | Markdown and text glob patterns | Files eligible for discovery |
+| `exclude` | Generated, VCS, dependency, and cache paths | Files excluded from discovery |
+
+### `[limits]`
+
+| Key | Default | Meaning |
+|---|---:|---|
+| `max_file_size_bytes` | `10485760` | Maximum file size accepted by indexing |
+| `symlink_policy` | `"ignore"` | Symlink behavior: `ignore`, `warn`, or `deny` |
+
+### `[indexing]`
+
+| Key | Default | Meaning |
+|---|---:|---|
+| `chunk_max_chars` | `2400` | Maximum target chunk size in characters |
+| `chunk_overlap_chars` | `200` | Character overlap between adjacent chunks |
+| `default_collection` | `"inbox"` | Collection used when no mapping matches |
+
+### `[search]`
+
+| Key | Default | Meaning |
+|---|---:|---|
+| `max_results` | `50` | Default result limit |
+| `snippet_length` | `200` | Search excerpt length passed to retrieval |
+
+> [!WARNING]
+> The current alpha validates these values as integers but does not yet enforce complete
+> safe ranges. This is tracked as finding `F-06` and roadmap task `A3-01`.
+
+### `[server]`
+
+| Key | Default | Meaning |
+|---|---:|---|
+| `host` | `"127.0.0.1"` | Bind host for local HTTP modes |
+| `port` | `8765` | Bind port |
+
+Loopback is the supported default. A non-loopback host is an explicit operator override;
+review [../SECURITY.md](../SECURITY.md) before using one.
+
+### `[mcp]`
+
+| Key | Default | Meaning |
+|---|---:|---|
+| `enabled` | `true` | Allow the MCP server to start for this workspace |
+| `transport` | `"stdio"` | Default transport: `stdio` or `streamable-http` |
+
+When `enabled = false`, MCP startup refuses the workspace and exits non-zero.
+
+### `[lint]`
+
+| Key | Default | Meaning |
+|---|---:|---|
+| `max_file_size_bytes` | `5242880` | Oversized-file threshold for workspace lint |
+| `warn_empty_docs` | `true` | Report empty source documents as warnings |
+
+### `[collections]`
+
+The collections table is an open mapping of path patterns to collection names:
 
 ```toml
-[mcp]
-enabled = true          # set false to refuse MCP connections for this workspace
-transport = "stdio"     # stdio | streamable-http
+[collections]
+"raw/articles/**" = "articles"
+"wiki/concepts/**" = "concepts"
 ```
 
-When `enabled = false`, the server refuses to start and exits non-zero, so
-an MCP client cannot attach to a workspace that opted out.
+Unlike the other sections, collection keys are user-defined patterns.
 
-### Client connection example
+## Environment variables
 
-Point any MCP client at the `nexusos mcp` command, e.g. in an MCP client
-config that supports stdio servers:
+Environment variables use the **configuration model field name**, not the TOML section
+and key path.
+
+Examples:
+
+```bash
+export NEXUSOS_WORKSPACE_NAME="research"
+export NEXUSOS_MAX_FILE_SIZE_BYTES=5000000
+export NEXUSOS_SEARCH_MAX_RESULTS=25
+export NEXUSOS_SEARCH_SNIPPET_LENGTH=240
+export NEXUSOS_SERVER_PORT=9000
+export NEXUSOS_MCP_ENABLED=true
+export NEXUSOS_MCP_TRANSPORT=stdio
+export NEXUSOS_LINT_WARN_EMPTY_DOCS=false
+```
+
+Important behavior:
+
+- integers are parsed and validated as integers
+- booleans accept `true`, `false`, `1`, or `0`
+- list and dictionary fields cannot be set through environment variables
+- unknown `NEXUSOS_*` names emit a warning and are ignored
+- names containing `SECRET`, `TOKEN`, `KEY`, or `PASSWORD` are ignored by the
+  configuration loader and are not displayed
+
+The most common field-name mappings are:
+
+| TOML | Environment variable |
+|---|---|
+| `[workspace] name` | `NEXUSOS_WORKSPACE_NAME` |
+| `[limits] max_file_size_bytes` | `NEXUSOS_MAX_FILE_SIZE_BYTES` |
+| `[limits] symlink_policy` | `NEXUSOS_SYMLINK_POLICY` |
+| `[indexing] chunk_max_chars` | `NEXUSOS_CHUNK_MAX_CHARS` |
+| `[indexing] chunk_overlap_chars` | `NEXUSOS_CHUNK_OVERLAP_CHARS` |
+| `[indexing] default_collection` | `NEXUSOS_DEFAULT_COLLECTION` |
+| `[search] max_results` | `NEXUSOS_SEARCH_MAX_RESULTS` |
+| `[search] snippet_length` | `NEXUSOS_SEARCH_SNIPPET_LENGTH` |
+| `[server] host` | `NEXUSOS_SERVER_HOST` |
+| `[server] port` | `NEXUSOS_SERVER_PORT` |
+| `[mcp] enabled` | `NEXUSOS_MCP_ENABLED` |
+| `[mcp] transport` | `NEXUSOS_MCP_TRANSPORT` |
+| `[lint] max_file_size_bytes` | `NEXUSOS_LINT_MAX_FILE_SIZE_BYTES` |
+| `[lint] warn_empty_docs` | `NEXUSOS_LINT_WARN_EMPTY_DOCS` |
+
+`include_patterns`, `exclude_patterns`, and `collection_mappings` must be configured in
+TOML because they are list or dictionary fields.
+
+## Viewing configuration
+
+```bash
+nexusos config show
+nexusos config show --effective
+nexusos config show --json
+nexusos config show --effective --json
+```
+
+- `config show` displays file values merged over built-in defaults, without environment
+  overrides.
+- `--effective` includes recognized environment overrides.
+- `--json` emits the display-safe model as JSON.
+
+## MCP configuration
+
+Start the default stdio transport:
+
+```bash
+nexusos mcp --workspace /path/to/workspace
+```
+
+Start Streamable HTTP explicitly:
+
+```bash
+nexusos serve --transport streamable-http --workspace /path/to/workspace
+```
+
+Generic stdio client configuration:
 
 ```json
 {
@@ -71,33 +229,4 @@ config that supports stdio servers:
 }
 ```
 
-Equivalently, `python -m nexusos.mcp --workspace /path/to/workspace` runs
-the same server from a source checkout.
-
-## Precedence
-
-1. Built-in defaults
-2. `nexusos.toml` values
-3. `NEXUSOS_*` environment variables
-4. CLI flags
-
-Lower numbers win. CLI flags override everything.
-
-## Environment Variables
-
-Any config key can be set via `NEXUSOS_<KEY>` (uppercase):
-
-```bash
-export NEXUSOS_SERVER_PORT=9000
-export NEXUSOS_MAX_FILE_SIZE_BYTES=5000000
-```
-
-Secret-pattern env vars (`SECRET`, `TOKEN`, `KEY`, `PASSWORD`) are excluded from `--effective` display but still applied.
-
-## Viewing Configuration
-
-```bash
-nexusos config show                  # Raw nexusos.toml values
-nexusos config show --effective      # Resolved with env overrides
-nexusos config show --json           # JSON output
-```
+See [mcp.md](mcp.md) for the tool and transport contract.

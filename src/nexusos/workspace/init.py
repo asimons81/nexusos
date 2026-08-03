@@ -62,7 +62,7 @@ STARTER_CONFIG = """# NexusOS Workspace Configuration
 #
 # This is the central configuration for this NexusOS knowledge workspace.
 # Environment variables NEXUSOS_* override these values at runtime.
-# CLI flags override environment variables.
+# CLI flags override environment variables where supported.
 
 [workspace]
 name = "{workspace_name}"
@@ -74,11 +74,17 @@ exclude = [
     "**/node_modules/**",
     "**/__pycache__/**",
     "**/.git/**",
+    "**/.direnv/**",
 ]
 
 [limits]
 max_file_size_bytes = 10_485_760
 symlink_policy = "ignore"
+
+[indexing]
+chunk_max_chars = 2400
+chunk_overlap_chars = 200
+default_collection = "inbox"
 
 [collections]
 inbox = "inbox"
@@ -95,6 +101,10 @@ snippet_length = 200
 [server]
 host = "127.0.0.1"
 port = 8765
+
+[mcp]
+enabled = true
+transport = "stdio"
 
 [lint]
 max_file_size_bytes = 5_242_880
@@ -113,44 +123,91 @@ exclude = [
     "**/node_modules/**",
     "**/__pycache__/**",
     "**/.git/**",
+    "**/.direnv/**",
 ]
 
 [limits]
 max_file_size_bytes = 10_485_760
+symlink_policy = "ignore"
+
+[indexing]
+chunk_max_chars = 2400
+chunk_overlap_chars = 200
+default_collection = "inbox"
+
+[search]
+max_results = 50
+snippet_length = 200
 
 [server]
 host = "127.0.0.1"
 port = 8765
+
+[mcp]
+enabled = true
+transport = "stdio"
+
+[lint]
+max_file_size_bytes = 5_242_880
+warn_empty_docs = true
 """
 
 STARTER_README = """# {workspace_name}
 
-Welcome to your NexusOS knowledge workspace.
+This is a NexusOS knowledge workspace. Your Markdown and text files are the source of
+truth; generated state lives inside `.nexusos/` and can be rebuilt.
 
-## Getting Started
+## Getting started
 
-1. Add Markdown files to `wiki/`, `raw/`, or `inbox/`
-2. Run `nexusos doctor` to verify health
-3. Indexing and search will be available in a future release
+1. Add Markdown or text files under `wiki/`, `raw/`, `inbox/`, `ops/`, `mocs/`, or
+   `journal/`.
+2. Run `nexusos doctor` to validate the workspace.
+3. Run `nexusos index` to build or refresh derived state.
+4. Run `nexusos search "your query"` to retrieve source-aware results.
+5. Run `nexusos lint --workspace .` to check links, frontmatter, structure, and staleness.
 
-## Directory Layout
+## Agent access through MCP
 
-- `inbox/` — Unprocessed items waiting to be classified
-- `raw/` — Source documents (articles, conversations, notes, transcripts)
-- `wiki/` — Structured knowledge base (concepts, entities, projects, queries)
-- `ops/` — Operational documents (decisions, SOPs, workflows)
-- `mocs/` — Maps of content (topical indexes)
-- `journal/` — Timestamped entries
-- `.nexusos/` — Internal state (do not edit)
+Start the local stdio server with:
+
+```bash
+nexusos mcp --workspace .
+```
+
+Retrieval tools are read-only. The MCP `index` tool writes only generated state inside
+`.nexusos/`.
+
+## Directory layout
+
+- `inbox/`: unprocessed items waiting to be classified
+- `raw/`: source documents such as articles, conversations, notes, and transcripts
+- `wiki/`: structured concepts, entities, projects, and saved queries
+- `ops/`: decisions, standard operating procedures, and workflows
+- `mocs/`: maps of content and topical indexes
+- `journal/`: timestamped entries
+- `.nexusos/`: generated workspace identity and index state
 
 ## Configuration
 
-See `nexusos.toml` for workspace settings. Run `nexusos config show` to review.
+See `nexusos.toml` for workspace settings. Use `nexusos config show --effective` to inspect
+resolved values.
+
+NexusOS v0.1 is designed for a local, single-user workspace. Keep HTTP transports bound
+to loopback unless you provide an appropriate external security layer.
 """
 
 BLANK_README = """# {workspace_name}
 
-A NexusOS knowledge workspace. Run `nexusos doctor` to verify health.
+This is a NexusOS knowledge workspace. Add Markdown or text files, then run:
+
+```bash
+nexusos doctor
+nexusos index
+nexusos status
+nexusos search "your query"
+```
+
+Generated state lives inside `.nexusos/`. Source files remain the system of record.
 """
 
 STARTER_SCHEMA = """# NexusOS Workspace Schema

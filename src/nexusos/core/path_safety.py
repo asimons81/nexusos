@@ -13,7 +13,9 @@ from nexusos.core.errors import (
     SymlinkEscapeError,
 )
 
-# Reserved prefixes — never allowed as workspace targets
+# Reserved native prefixes — never allowed as workspace targets.
+# Keep the full public tuple for documentation and introspection, but compare
+# only prefixes meaningful on the current operating system.
 FORBIDDEN_PREFIXES: tuple[str, ...] = (
     "/etc",
     "/proc",
@@ -22,11 +24,13 @@ FORBIDDEN_PREFIXES: tuple[str, ...] = (
     "/boot",
     "/run",
     "/var/run",
-    # Windows
     "C:\\Windows",
     "C:\\Program Files",
     "C:\\Program Files (x86)",
 )
+
+_POSIX_FORBIDDEN_PREFIXES = FORBIDDEN_PREFIXES[:7]
+_WINDOWS_FORBIDDEN_PREFIXES = FORBIDDEN_PREFIXES[7:]
 
 
 def _parse_deny_list(env_var: str | None) -> list[str]:
@@ -40,25 +44,39 @@ def _parse_deny_list(env_var: str | None) -> list[str]:
     return [p.strip() for p in raw.split(separator) if p.strip()]
 
 
+def _native_forbidden_prefixes() -> tuple[str, ...]:
+    """Return built-in prefixes meaningful on the current platform."""
+    if os.name == "nt":
+        return _WINDOWS_FORBIDDEN_PREFIXES
+    return _POSIX_FORBIDDEN_PREFIXES
+
+
+def _is_within(path: Path, boundary: Path) -> bool:
+    """Return whether a resolved path is equal to or below a boundary."""
+    try:
+        path.relative_to(boundary)
+    except ValueError:
+        return False
+    return True
+
+
 def is_denied_path(target: Path, *, env_deny: str | None = None) -> bool:
     """Check whether a path is in the deny list."""
     if env_deny is None:
         env_deny = os.environ.get("NEXUSOS_DENY_PATHS")
     deny_list = _parse_deny_list(env_deny)
-    resolved = target.resolve(strict=False)
+    resolved = target.expanduser().resolve(strict=False)
 
     for deny in deny_list:
         deny_path = Path(deny).expanduser().resolve(strict=False)
-        try:
-            resolved.relative_to(deny_path)
+        if _is_within(resolved, deny_path):
             return True
-        except ValueError:
-            pass
 
-    # Also check against hardcoded forbidden prefixes
-    resolved_str = str(resolved)
-    for prefix in FORBIDDEN_PREFIXES:
-        if resolved_str == prefix or resolved_str.startswith(prefix + os.sep):
+    # Resolve native built-in prefixes before comparison. This matters on
+    # systems such as macOS where /etc resolves to /private/etc.
+    for prefix in _native_forbidden_prefixes():
+        prefix_path = Path(prefix).resolve(strict=False)
+        if _is_within(resolved, prefix_path):
             return True
 
     return False

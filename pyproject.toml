@@ -32,10 +32,10 @@ dependencies = [
 nexusos = "nexusos.cli.main:main"
 
 [project.urls]
-Homepage = "https://github.com/asimons81/nexusOS"
-Documentation = "https://github.com/asimons81/nexusOS/tree/main/docs"
-Repository = "https://github.com/asimons81/nexusOS"
-Issues = "https://github.com/asimons81/nexusOS/issues"
+Homepage = "https://github.com/asimons81/nexusos"
+Documentation = "https://github.com/asimons81/nexusos/tree/main/docs"
+Repository = "https://github.com/asimons81/nexusos"
+Issues = "https://github.com/asimons81/nexusos/issues"
 
 [build-system]
 requires = ["hatchling"]

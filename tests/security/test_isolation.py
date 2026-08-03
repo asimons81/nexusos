@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 
@@ -35,8 +36,13 @@ def test_denied_path_rejects_write(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 
 
 def test_forbidden_prefixes_blocked() -> None:
-    """System paths like /etc, /proc, /sys are always denied."""
-    for path in ["/etc", "/proc", "/sys", "/dev", "/boot", "/run"]:
+    """Native operating-system directories are always denied."""
+    if os.name == "nt":
+        protected_paths = ["C:/Windows", "C:/Program Files", "C:/Program Files (x86)"]
+    else:
+        protected_paths = ["/etc", "/proc", "/sys", "/dev", "/boot", "/run"]
+
+    for path in protected_paths:
         assert is_denied_path(Path(path)), f"{path} should be denied"
 
 

@@ -10,6 +10,9 @@ jobs:
   test:
     name: Test (Python ${{ matrix.python-version }} on ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    env:
+      NO_COLOR: "1"
+      TYPER_USE_RICH: "0"
     strategy:
       fail-fast: false
       matrix:

@@ -67,9 +67,14 @@ def test_denied_path_subdirectory(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
 
 def test_denied_path_forbidden_prefix() -> None:
-    assert is_denied_path(Path("/etc"))
-    assert is_denied_path(Path("/proc"))
-    assert is_denied_path(Path("/sys"))
+    if os.name == "nt":
+        assert is_denied_path(Path("C:/Windows"))
+        assert is_denied_path(Path("C:/Program Files"))
+        assert is_denied_path(Path("C:/Program Files (x86)"))
+    else:
+        assert is_denied_path(Path("/etc"))
+        assert is_denied_path(Path("/proc"))
+        assert is_denied_path(Path("/sys"))
 
 
 def test_resolve_safe_tmpdir(tmp_path: Path) -> None:

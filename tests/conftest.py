@@ -3,10 +3,34 @@
 from __future__ import annotations
 
 import os
+import sys
 import tempfile
 from pathlib import Path
 
 import pytest
+
+_POSIX_PERMISSION_TESTS = {
+    "test_database_regression_readonly_db_message",
+    "test_database_regression_readonly_db_permission_error_type",
+}
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Apply platform-specific test boundaries.
+
+    Windows does not implement POSIX directory write permissions through
+    ``Path.chmod()``, so those tests cannot exercise the intended failure
+    boundary there. macOS uses a dedicated unbuffered serve subprocess smoke
+    with a longer cold-start deadline.
+    """
+    del config
+    for item in items:
+        if os.name == "nt" and item.name in _POSIX_PERMISSION_TESTS:
+            item.add_marker(pytest.mark.skip(reason="requires POSIX chmod permission enforcement"))
+        if sys.platform == "darwin" and item.name == "test_serve_cli_sigint_clean_shutdown":
+            item.add_marker(
+                pytest.mark.skip(reason="replaced by macOS-specific unbuffered signal smoke")
+            )
 
 
 @pytest.fixture

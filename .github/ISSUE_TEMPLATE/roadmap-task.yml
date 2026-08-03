@@ -1,0 +1,89 @@
+name: Roadmap task
+description: Track one release-roadmap task with explicit contracts and evidence.
+title: "[ROADMAP] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for one scoped item from `ROADMAP.md`. Do not combine unrelated
+        release tasks. Completion requires evidence for every acceptance criterion.
+
+  - type: input
+    id: task_id
+    attributes:
+      label: Roadmap task ID
+      description: Enter the exact ID from ROADMAP.md.
+      placeholder: A3-04
+    validations:
+      required: true
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: State the release outcome this task must produce.
+      placeholder: Prove wheel and source distribution installation from clean environments.
+    validations:
+      required: true
+
+  - type: textarea
+    id: contract
+    attributes:
+      label: Public contract affected
+      description: Identify CLI, configuration, JSON, MCP, packaging, migration, security, or documentation surfaces.
+      placeholder: Packaging metadata, installed CLI entry point, bundled UI resources.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Copy the criteria from the roadmap and add any task-specific proof required.
+      placeholder: |
+        - [ ] Wheel and sdist build cleanly
+        - [ ] Both install in fresh environments
+        - [ ] Installed CLI smoke passes
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: List prerequisite roadmap tasks, issues, or decisions.
+      placeholder: A3-02
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification plan
+      description: List exact commands, platforms, clients, fixtures, or artifacts that will prove completion.
+      placeholder: |
+        uv run ruff check .
+        uv run ruff format --check .
+        uv run mypy src
+        uv run pytest -q
+    validations:
+      required: true
+
+  - type: textarea
+    id: documentation
+    attributes:
+      label: Documentation impact
+      description: Identify every document that may need to change.
+      placeholder: README.md, docs/releasing.md, CHANGELOG.md
+
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Scope boundaries
+      options:
+        - label: This issue covers one coherent roadmap task.
+          required: true
+        - label: No post-v0.1 feature scope is being introduced.
+          required: true
+        - label: Source immutability and architecture boundaries will be preserved.
+          required: true
+        - label: Completion will include concrete verification evidence.
+          required: true
