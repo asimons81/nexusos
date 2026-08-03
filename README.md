@@ -1,3 +1,15 @@
+<p align="center">
+  <img src="assets/nexusos-branding.png" alt="NexusOS — Run your second brain" width="85%"/>
+</p>
+
+<p align="center">
+  <a href="https://x.com/tonysimons_"><img src="https://img.shields.io/badge/X-%40tonysimons_-000000?style=flat-square&logo=x&logoColor=white" alt="X: @tonysimons_"/></a>
+  <img src="https://img.shields.io/badge/version-0.1.0--alpha.2-blue?style=flat-square" alt="Version 0.1.0-alpha.2"/>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="License: Apache-2.0"/></a>
+  <img src="https://img.shields.io/badge/python-3.11%2B-blue?style=flat-square" alt="Python 3.11+"/>
+  <img src="https://img.shields.io/badge/status-alpha-orange?style=flat-square" alt="Status: alpha"/>
+</p>
+
 # NexusOS
 
 **Files you own. Memory your agents can trust.**
