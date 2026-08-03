@@ -1,81 +1,135 @@
 # NexusOS Linting
 
-NexusOS ships two kinds of linting. This page documents both, with an
-emphasis on the workspace vault linter.
+NexusOS exposes two lint modes through one command:
 
-## Workspace vault linter
+1. **workspace linting** for a user's knowledge workspace
+2. **repository static analysis** for NexusOS contributors
 
-`nexusos lint --workspace PATH` runs a read-only battery of checks over a
-vault's **source files and index**. It works whether or not the workspace
-has been indexed yet — the stale-index check reports exactly that.
+The `--workspace` option selects workspace linting. Without it, `nexusos lint` runs the
+repository development tools.
+
+## Workspace linting
 
 ```bash
 nexusos lint --workspace /path/to/workspace
 nexusos lint --workspace /path/to/workspace --json
 ```
 
-Exit codes:
+Workspace linting runs a fresh discovery and parse pass over source files. It can report
+problems before the workspace has been indexed. The stale-index check separately reports
+whether derived state is missing or out of date.
 
-- `0` — clean (no failed checks; warnings are allowed)
-- `1` — one or more checks failed (findings detected)
-- `2` — invalid input (e.g. missing workspace)
+The linter is read-only. It must not create, migrate, or modify the index database and
+must not edit source files.
+
+### Exit codes
+
+| Code | Meaning |
+|---:|---|
+| `0` | No failing checks; warnings may be present |
+| `1` | One or more checks failed |
+| `2` | Invalid input or workspace resolution failure |
 
 ### Checks
 
-| Check                    | Severity | Detects                                                     |
-|--------------------------|----------|-------------------------------------------------------------|
-| `broken-links`           | fail     | wiki links that resolve to no document                     |
-| `ambiguous-links`        | fail     | wiki links matching more than one document stem            |
-| `invalid-frontmatter`    | fail     | frontmatter parse warnings (bad YAML, missing `---`, dup keys) |
-| `duplicate-slugs`        | fail     | two or more documents sharing a filename stem               |
-| `stale-index`            | fail     | index missing, stale, or with source drift                 |
-| `oversized-files`        | fail     | source files above the configured lint size cap            |
-| `orphans`                | warn     | documents no other document links to                       |
-| `empty-documents`        | warn     | documents with no body content                             |
-| `symlink-escapes`        | fail     | symlinks resolving outside the workspace                   |
-| `outside-collections`    | warn     | files not under any configured collection directory        |
+| Check | Severity | Detects |
+|---|---|---|
+| `broken-links` | fail | Wiki links with no matching document |
+| `ambiguous-links` | fail | Wiki links matching multiple candidates |
+| `invalid-frontmatter` | fail | Frontmatter parse failures and invalid structure |
+| `duplicate-slugs` | fail | Multiple documents sharing a filename stem |
+| `stale-index` | fail | Missing or stale derived index state |
+| `oversized-files` | fail | Files above the configured lint size limit |
+| `orphans` | warn | Documents with no incoming wiki links |
+| `empty-documents` | warn | Documents without body content |
+| `symlink-escapes` | fail | Symlinks resolving outside the workspace boundary |
+| `outside-collections` | warn | Files outside configured collection directories |
 
-Warnings do not fail the run; they surface in the report and in JSON.
-Failures make `nexusos lint` exit 1.
+Warnings are findings, but warnings alone do not make the command exit `1`.
 
 ### Configuration
 
-The `[lint]` section in `nexusos.toml`:
-
 ```toml
 [lint]
-max_file_size_bytes = 5242880   # 5 MiB oversized-file cap
-warn_empty_docs = true          # report empty documents as warnings
+max_file_size_bytes = 5242880
+warn_empty_docs = true
 ```
 
-`NEXUSOS_LINT_MAX_FILE_SIZE_BYTES` / `NEXUSOS_LINT_WARN_EMPTY_DOCS`
-override these.
-
-### Design notes
-
-- The linter is fully read-only: it never creates or mutates the index
-  database. It runs a fresh discovery + parse pass so it works even before
-  indexing.
-- Link resolution mirrors `nexusos.indexing.graph` (exact path, then
-  path+suffix, then unique filename stem; ambiguous on multiple matches),
-  so findings agree with what the indexer would produce.
-- `broken-links` on an **unindexed** workspace resolves against the
-  discovered file set directly; the stale-index check separately reports
-  that there is no index.
-
-## Kernel static-analysis lint (developer tooling)
-
-`nexusos lint` **without** `--workspace` runs the project's own tooling
-(ruff, ruff format --check, mypy) over the NexusOS source tree. This is a
-developer command for this repository, not a vault feature:
+Environment overrides use model field names:
 
 ```bash
-nexusos lint                     # ruff check + format + mypy
-nexusos lint --tool mypy         # single tool
-nexusos lint --json              # machine-readable report
-nexusos lint --repo /path        # explicit repo root
+export NEXUSOS_LINT_MAX_FILE_SIZE_BYTES=5242880
+export NEXUSOS_LINT_WARN_EMPTY_DOCS=true
 ```
 
-Exit codes: `0` clean, `1` findings, `2` invalid input.
+See [configuration.md](configuration.md) for validation and precedence.
 
-Both lint modes share the `--json` flag for machine-readable output.
+### Link resolution
+
+Workspace lint link checks mirror index graph resolution:
+
+1. exact relative-path match
+2. path plus supported suffix
+3. unique filename-stem match
+4. ambiguous when multiple candidates remain
+5. broken when no candidate resolves
+
+This keeps lint findings aligned with indexed link behavior.
+
+### Unindexed workspaces
+
+On an unindexed workspace:
+
+- discovery and parsing checks still run
+- link checks resolve against the discovered source set
+- `stale-index` reports that the index is missing
+- no index database is created as a side effect
+
+### JSON output
+
+`--json` returns the complete workspace lint report, including check status and findings.
+Automation should evaluate the process exit code as well as the JSON body.
+
+## Repository static analysis
+
+Run from a NexusOS checkout:
+
+```bash
+nexusos lint
+nexusos lint --tool ruff
+nexusos lint --tool format
+nexusos lint --tool mypy
+nexusos lint --json
+nexusos lint --repo /path/to/nexusos
+```
+
+Without `--workspace`, the command locates the repository and runs the configured static
+analysis tools over the source tree.
+
+### Exit codes
+
+| Code | Meaning |
+|---:|---|
+| `0` | Selected checks passed |
+| `1` | A selected tool reported findings or failed to run |
+| `2` | Invalid tool name or repository could not be resolved |
+
+The repository lint command is convenient developer tooling. The complete release gate
+still includes tests and a runtime smoke:
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy src
+uv run pytest -q
+uv run nexusos version
+```
+
+## Agent guidance
+
+Agents should use workspace lint findings as evidence, not as permission to edit source
+files. A future guarded write workflow is outside the v0.1 release scope.
+
+For repository work, do not report a roadmap task complete after running only
+`nexusos lint`. Run the full task-specific verification required by
+[../ROADMAP.md](../ROADMAP.md) and [../AGENTS.md](../AGENTS.md).
