@@ -46,6 +46,12 @@
   `NEXUSOS_ALLOW_NON_LOOPBACK=1`. The token-protected kernel-data HTTP
   transport keeps its warn-and-proceed behavior. Docs and SECURITY.md
   updated.
+- **RC-04** — Read-only commands (status/search/read) on a database written
+  by a NEWER NexusOS reported "requires upgrade", which is the wrong
+  direction for a future schema. They now refuse with a distinct "newer than
+  supported" message on both the read-only and index paths, matching the
+  writable path's refusal. Covered by the RC-04 upgrade/schema integration
+  tests.
 - Added 17 regression/adversarial tests covering every A3-01 finding
   (`tests/security/test_a3_01_release_fixes.py`); full suite: 435 passing.
 
@@ -69,6 +75,38 @@
   MCP validation, upgrade testing, publication, tagging, evidence, and rollback.
 - Regression coverage that prevents generated workspace documentation and configuration
   from drifting behind implemented features.
+- RC-03 MCP client-compatibility validation: integration tests for the
+  Streamable HTTP endpoint (`/mcp`) using the official MCP Python SDK
+  (handshake, tool discovery, strict schemas, status/search/read/context/
+  index, source immutability) and a raw JSON-RPC client over HTTP that
+  speaks the protocol without SDK sugar. Protocol-behavior gate per
+  ROADMAP RC-03.
+- RC-04 upgrade and schema validation: integration tests for opening an
+  alpha.2 workspace, v1→v2 migration via `PRAGMA user_version`, clear
+  refusal of future schemas, derived-state delete+rebuild without source
+  loss, and `init --adopt` recovery after full `.nexusos/` deletion.
+  Full suite after RC-03/RC-04: 450 passing.
+- A3-07 adversarial security release review (findings F-09…F-14, GitHub
+  issues #4–#9):
+  - F-09 — `.nexusos/index.lock` created owner-only (`0600`) instead of
+    world-readable; the lock holds an ownership token, pid, host, and run id.
+  - F-10 — the kernel-data HTTP server no longer embeds the per-process API
+    token in the unauthenticated root page on non-loopback binds, so the
+    token remains a real access control for `/api/*`; the CLI warning now
+    states the token is not embedded on such binds.
+  - F-11 — byte-for-byte source-immutability tests across CLI retrieval,
+    kernel-data HTTP `/api/documents`, and MCP stdio read/search, plus HTTP
+    path-traversal tests for `/api/documents/...` and `/ui/...`.
+  - F-12 — the index SQLite database (and `-wal`/`-shm` siblings) is
+    tightened to owner-only (`0600`) on writable open, matching
+    `workspace.json`.
+  - F-13 — search terms are length-bounded (`MAX_SEARCH_TERM_LENGTH`) in the
+    shared service layer and in the MCP `search` tool schema so a single
+    caller cannot force unbounded FTS work.
+  - F-14 — `docs/security-model.md` expanded into a full threat model with
+    per-review-area evidence and accepted limitations; `SECURITY.md` now names
+    the concrete private advisory URL as the vulnerability reporting path.
+  Full suite after A3-07: 462 passing.
 
 ## 0.1.0-alpha.2 (2026-08-02)
 

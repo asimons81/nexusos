@@ -7,7 +7,8 @@ has not yet declared a stable support window.
 
 | Version | Status |
 |---|---|
-| `0.1.0-alpha.2` | Current prerelease, receiving security fixes |
+| `0.1.0-alpha.3` | Current prerelease, receiving security fixes |
+| `0.1.0-alpha.2` | Previous prerelease, receiving security fixes until `v0.1.0` |
 | Earlier commits and unreleased snapshots | Best effort only |
 
 The policy will be updated when `v0.1.0` is released.
@@ -56,6 +57,13 @@ The v0.1 contract is intended to preserve these invariants:
 12. Result limits (search/browse/recent/context) and `[search]` configuration values are
     range-validated consistently across the CLI, JSON, config, and MCP surfaces (F-06
     resolved).
+13. Derived state files are owner-only: the index database (and its WAL/SHM siblings) and
+    the index lock are created `0600`, matching `workspace.json` (F-09/F-12 resolved).
+14. The API token is embedded in the served UI page only for loopback binds; on a
+    non-loopback bind the unauthenticated root page never contains the token, so the token
+    remains an actual access control for `/api/*` (F-10 resolved).
+15. Search terms are length-bounded consistently on the CLI and MCP surfaces so a single
+    caller cannot force unbounded FTS work (F-13 resolved).
 
 Security tests should prove these invariants using synthetic workspaces.
 
@@ -96,18 +104,24 @@ Do not deploy NexusOS as though these controls exist.
 
 ## Reporting a vulnerability
 
-Do not open a public issue with vulnerability details.
+Do not open a public issue with vulnerability details. The repository's
+**private reporting path** is GitHub's private advisory flow:
 
-1. Use GitHub's private **Report a vulnerability** flow for this repository when it is
-   available.
-2. If the private advisory flow is unavailable, contact the maintainer through a private
-   channel and request a secure intake path before sharing technical details.
-3. Include the affected version or commit, operating system, reproduction steps, impact,
-   and any proposed mitigation.
-4. Avoid accessing data you do not own and use synthetic workspaces whenever possible.
+1. Open https://github.com/asimons81/nexusos/security/advisories/new (or
+   **Security → Report a vulnerability** on the repository page). This creates
+   a private advisory that is only visible to the maintainer until it is
+   published.
+2. If the private advisory flow is unavailable for any reason, contact the
+   maintainer directly through the GitHub profile
+   (https://github.com/asimons81) and request a secure intake path **before**
+   sharing technical details.
+3. Include the affected version or commit, operating system, reproduction
+   steps, impact, and any proposed mitigation.
+4. Avoid accessing data you do not own and use synthetic workspaces whenever
+   possible.
 
-A dedicated published security contact is a release-readiness requirement in roadmap
-item `A3-07`.
+A dedicated published security contact is a release-readiness requirement in
+roadmap item `A3-07`; the private advisory flow above is that contact path.
 
 ## Disclosure expectations
 

@@ -9,12 +9,13 @@ deterministic-ID policy; those live in :mod:`nexusos.indexing.lock` and
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sqlite3
 from collections.abc import Iterator  # noqa: TC003
 from contextlib import contextmanager, suppress
 from datetime import UTC, datetime
-from pathlib import Path  # noqa: TC003
+from pathlib import Path
 from typing import Any
 
 from nexusos.core.errors import (
@@ -63,6 +64,25 @@ def _is_readonly_error(exc: BaseException) -> bool:
         return True
     message = str(exc).lower()
     return "readonly" in message or "read-only" in message
+
+
+def _tighten_db_permissions(db_path: Path) -> None:
+    """Best-effort tighten the index database file to owner-only (0o600).
+
+    SQLite creates the database with the process umask (typically 0644), but
+    the index mirrors source content into derived chunks. On a shared host
+    other local users could otherwise read it (A3-07 F-12). Windows ignores
+    POSIX mode bits; failures are suppressed because permission tightening is
+    best-effort and must never break indexing.
+    """
+    with contextlib.suppress(OSError):
+        db_path.chmod(0o600)
+    # WAL and shared-memory siblings are transient but may outlive a close;
+    # tighten them too when present.
+    for suffix in ("-wal", "-shm"):
+        sibling = Path(f"{db_path}{suffix}")
+        with contextlib.suppress(OSError):
+            sibling.chmod(0o600)
 
 
 def _as_str(row: Any, key: str) -> str:
@@ -135,6 +155,12 @@ class IndexDatabase:
             self._db_path.parent.mkdir(parents=True, exist_ok=True)
         conn = self._connect(read_only=read_only)
         self._conn = conn
+        if not read_only:
+            # Derived state mirrors source content; keep it owner-only like
+            # workspace.json and the index lock (A3-07 F-12). SQLite creates
+            # the file with the process umask (typically 0644); tighten it so
+            # other local users cannot read the index database.
+            _tighten_db_permissions(self._db_path)
 
     def _connect(self, *, read_only: bool) -> sqlite3.Connection:
         """Connect, configure, and migrate the database connection.
@@ -170,7 +196,17 @@ class IndexDatabase:
                     # the schema, which a mode=ro connection cannot do. If the
                     # database is behind the current schema, report a clear
                     # upgrade message instead of a misleading permission error.
+                    # A database written by a NEWER NexusOS is refused with a
+                    # distinct "newer than supported" message (RC-04): telling
+                    # the user to run `nexusos index` for a future schema would
+                    # be wrong, because the writable path refuses it too.
                     current = current_schema_version(conn)
+                    if current > SCHEMA_VERSION:
+                        raise DatabaseSchemaError(
+                            f"index database schema version {current} is newer "
+                            f"than supported version {SCHEMA_VERSION}; refusing "
+                            "to open"
+                        )
                     if current != SCHEMA_VERSION:
                         raise DatabaseSchemaError(
                             f"index database schema version {current} requires "

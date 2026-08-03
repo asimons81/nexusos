@@ -66,7 +66,8 @@ writes, cloud hosting, OAuth, sync, or multi-user collaboration.
 
 ## Quick start
 
-NexusOS is not yet published as a stable PyPI package. Run it from a source checkout:
+NexusOS is not yet published as a stable PyPI package. Run it from a source
+checkout (full instructions: [docs/install.md](docs/install.md)):
 
 ```bash
 git clone https://github.com/asimons81/nexusos.git
@@ -291,6 +292,8 @@ Roadmap work should reference a task ID such as `A3-04` or `RC-03`. Agents must:
 | Document | Contents |
 |---|---|
 | [ROADMAP.md](ROADMAP.md) | Executable plan from alpha to stable |
+| [docs/install.md](docs/install.md) | Supported environments, dependencies, install/upgrade, verified artifacts |
+| [docs/releases/v0.1.md](docs/releases/v0.1.md) | v0.1 release notes (features, fixes, known issues, verification) |
 | [docs/architecture.md](docs/architecture.md) | Layers, dependencies, and invariants |
 | [docs/contracts.md](docs/contracts.md) | Frozen CLI, config, JSON, exit-code, and MCP contracts |
 | [docs/configuration.md](docs/configuration.md) | TOML schema, environment variables, precedence |
