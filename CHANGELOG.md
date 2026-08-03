@@ -46,6 +46,13 @@
 - CI now runs the full test suite (unit + integration + security) on every
   leg of the platform matrix (Linux/macOS/Windows × 3.11/3.12/3.13) instead
   of omitting `tests/integration/` (A3-02).
+- Enforced a measured coverage policy (A3-03): the aggregate gate is
+  `fail_under = 80` in `[tool.coverage.report]` (measured baseline 84–85%),
+  CI enforces targeted floors for security-critical modules
+  (`core/path_safety.py`, `indexing/lock.py`, `services/serve_service.py`,
+  `mcp/`), and the coverage report is uploaded as a per-leg artifact.
+- Added unit tests for the `python -m nexusos.mcp` entrypoint error and
+  transport paths, lifting `mcp/__main__.py` coverage from 0% to 97%.
 - Replaced the feature-bucket roadmap with an executable release train for
   `v0.1.0-alpha.3`, `v0.1.0-rc.1`, and stable, including scoped task IDs,
   dependencies, acceptance criteria, verification commands, and release gates.

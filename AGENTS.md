@@ -156,9 +156,16 @@ uv sync
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy src
-uv run pytest -q
+uv run pytest -q --cov=nexusos
 uv run nexusos version
 ```
+
+The `--cov=nexusos` flag enforces the A3-03 aggregate coverage gate: `fail_under = 80`
+in `[tool.coverage.report]` (measured baseline 84–85%, 2026-08-03). CI additionally
+enforces targeted floors for security-critical modules (`core/path_safety.py`,
+`indexing/lock.py`, `services/serve_service.py`, `mcp/`) and uploads the coverage
+report as a per-leg artifact. Claims of "full test suite passing" must refer to the
+measured suite and its measured coverage, never to an unmeasured literal 100%.
 
 Roadmap tasks may require additional commands, platform matrices, clean-environment
 installs, MCP client tests, package builds, or release checks. Run those in addition to

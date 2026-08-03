@@ -46,8 +46,36 @@ jobs:
       - name: Type check
         run: uv run mypy src
 
-      - name: Test (full suite)
-        run: uv run pytest -q
+      - name: Test (full suite, with coverage)
+        run: |
+          uv run pytest --cov=nexusos \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --cov-report=html:htmlcov \
+            -q
+
+      # A3-03: security-critical modules keep targeted floors even when the
+      # aggregate passes. coverage report --include uses the same data file as
+      # the pytest run above; patterns are cross-platform (coverage normalizes
+      # path separators). Baselines measured 2026-08-03:
+      #   core/path_safety.py 90%, indexing/lock.py 77%,
+      #   services/serve_service.py 78%, mcp/server.py 69%, mcp/__main__.py 97%.
+      - name: Security module coverage floors
+        run: |
+          uv run coverage report --include="*/core/path_safety.py" --fail-under=85
+          uv run coverage report --include="*/indexing/lock.py" --fail-under=75
+          uv run coverage report --include="*/services/serve_service.py" --fail-under=75
+          uv run coverage report --include="*/mcp/server.py" --fail-under=65
+          uv run coverage report --include="*/mcp/__main__.py" --fail-under=90
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: |
+            coverage.xml
+            htmlcov/
+          if-no-files-found: error
 
       - name: Smoke test
         run: |

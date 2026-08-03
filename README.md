@@ -256,9 +256,15 @@ uv sync
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy src
-uv run pytest -q
+uv run pytest -q --cov=nexusos
 uv run nexusos version
 ```
+
+Coverage is enforced: the aggregate gate is 80% (`[tool.coverage.report] fail_under`),
+and security-critical modules (`core/path_safety.py`, `indexing/lock.py`,
+`services/serve_service.py`, `mcp/`) keep targeted floors in CI. The full test
+suite (unit + integration + security) must pass on every supported platform
+before release.
 
 Read these before changing the repository:
 
@@ -299,10 +305,10 @@ Roadmap work should reference a task ID such as `A3-04` or `RC-03`. Agents must:
 
 ## Release status
 
-The repository is ready to begin the `v0.1.0-alpha.3` hardening roadmap. Stable release
-is blocked on cross-platform full-suite validation, coverage policy, artifact installation
-proof, interface freeze, documentation verification, security review, and release
-candidate testing.
+The repository is ready to begin the `v0.1.0-alpha.3` hardening roadmap. The full-suite
+platform matrix and a measured coverage policy are in place. Stable release remains
+blocked on the public contract freeze (A3-05), release-candidate testing, and PyPI
+publication (maintainer-only).
 
 Follow progress in [ROADMAP.md](ROADMAP.md).
 

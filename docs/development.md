@@ -43,8 +43,7 @@ uv run ruff check .              # Linting
 uv run ruff format --check .     # Format check
 uv run ruff format .             # Auto-format
 uv run mypy src                  # Type checking
-uv run pytest -q                 # Tests
-uv run pytest -q --cov=nexusos   # With coverage
+uv run pytest -q --cov=nexusos   # Tests with enforced coverage gate (A3-03)
 ```
 
 ## Running Specific Tests

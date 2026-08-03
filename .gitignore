@@ -14,8 +14,8 @@ venv/
 .ruff_cache/
 .coverage
 .coverage.*
+coverage.xml
 htmlcov/
-.coverage.xml
 
 # --- NexusOS derived state ---
 .nexusos/
