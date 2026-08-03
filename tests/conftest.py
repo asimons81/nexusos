@@ -14,7 +14,7 @@ _POSIX_PERMISSION_TESTS = {
 }
 
 
-def pytest_collection_modifyitems(_config: pytest.Config, items: list[pytest.Item]) -> None:
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Skip chmod-enforcement tests on Windows.
 
     Windows does not implement POSIX directory write permissions through
@@ -22,6 +22,7 @@ def pytest_collection_modifyitems(_config: pytest.Config, items: list[pytest.Ite
     boundary there. Windows still runs the remaining database, indexing, and
     security suite.
     """
+    del config
     if os.name != "nt":
         return
 
