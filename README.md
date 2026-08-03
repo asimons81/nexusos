@@ -111,6 +111,38 @@ workspace/
 - Atomic writes where practical
 - No network access required
 
+## Known Limitations (alpha)
+
+The items below are accepted-for-alpha hardening backlog, documented so
+reviewers and users understand the current boundary. Each is tracked for a
+later release; none are secrets.
+
+- **F-03 — TOCTOU in path-safety checks**: path-safety checks
+  (`validate_within_workspace`, deny-path checks) are check-then-use — a
+  concurrent actor that swaps a file between the check and the access can
+  bypass the boundary. Accepted for alpha because NexusOS targets a local,
+  single-user workspace where no untrusted process is expected to race the
+  checks.
+- **F-05 — relative deny-path entries resolve against the CWD**: a relative
+  entry in `NEXUSOS_DENY_PATHS` resolves against the current working
+  directory at check time, not the workspace root, so deny behavior depends
+  on where the command is run from. Accepted for alpha; prefer absolute
+  paths in `NEXUSOS_DENY_PATHS`.
+- **F-06 — search limit values are not clamped**: `[search]` settings such as
+  `max_results` and `snippet_length` accept any integer, including negative
+  values — no range validation today. Accepted for alpha; a bad value
+  surfaces as a runtime error rather than silent corruption.
+- **F-07 — `check_symlink_escape` is defense-in-depth only**: the function is
+  not called on the current code paths (indexing handles symlinks via
+  `symlink_policy` instead), so it is effectively dead code retained as a
+  safety net. Accepted for alpha; it will be wired into the real paths or
+  removed.
+- **F-08 — non-loopback bind is operator-opted**: binding the serve API to a
+  non-loopback host (`--host 0.0.0.0` or similar) prints a warning and
+  proceeds — the operator overrides the loopback default and assumes the
+  risk. The F-02 protections (Host allowlist, `X-NexusOS-Token`) still apply,
+  but the read-only serve API becomes reachable on the network.
+
 ## Requirements
 
 - Python 3.11+
