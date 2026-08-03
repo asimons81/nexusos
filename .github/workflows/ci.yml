@@ -16,6 +16,7 @@ jobs:
   test:
     name: Test (Python ${{ matrix.python-version }} on ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     env:
       NO_COLOR: "1"
       TYPER_USE_RICH: "0"

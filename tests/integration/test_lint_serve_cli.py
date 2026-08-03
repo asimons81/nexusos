@@ -10,7 +10,9 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import queue
 import subprocess
+import threading
 import time
 from pathlib import Path
 
@@ -55,6 +57,47 @@ def _make_workspace(tmp_path: Path, *, broken: bool = False) -> Path:
     else:
         (ws / "wiki" / "beta.md").write_text("# Beta\n\nSee [[alpha]].\n", encoding="utf-8")
     return ws
+
+
+def _read_until(
+    proc: subprocess.Popen[str],
+    needle: str,
+    *,
+    timeout: float = 15.0,
+) -> str:
+    """Read ``proc`` stdout until ``needle`` appears, EOF, or timeout.
+
+    Uses a daemon reader thread feeding a queue so the wait is strictly
+    bounded: a silent-but-alive child must not block ``readline()`` (or the
+    assert message's ``read()``) forever past the deadline. Returns all
+    output read so far.
+    """
+    lines: queue.Queue[str | None] = queue.Queue()
+
+    def _drain() -> None:
+        assert proc.stdout is not None
+        try:
+            for line in proc.stdout:
+                lines.put(line)
+        finally:
+            lines.put(None)
+
+    thread = threading.Thread(target=_drain, daemon=True)
+    thread.start()
+    output = ""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline and needle not in output:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        try:
+            line = lines.get(timeout=remaining)
+        except queue.Empty:
+            break
+        if line is None:
+            break
+        output += line
+    return output
 
 
 # -- lint ---------------------------------------------------------------------
@@ -172,16 +215,12 @@ def test_serve_http_transport_starts_and_serves(tmp_path: Path) -> None:
 
         # The CLI prints the per-process API token on startup; /api/* reads
         # require it (F-02). Read the startup output until the token appears.
-        token: str | None = None
-        deadline = time.monotonic() + 15
-        while time.monotonic() < deadline and token is None:
-            line = proc.stdout.readline()
-            if not line:
-                break
-            match = re.search(r"API token: (\S+)", line)
-            if match:
-                token = match.group(1)
-        assert token is not None, proc.stdout.read()
+        # _read_until is strictly bounded: a silent-but-alive child must not
+        # block the read (or the assert message) forever past the deadline.
+        output = _read_until(proc, "API token:")
+        match = re.search(r"API token: (\S+)", output)
+        assert match is not None, f"server did not print API token; output:\n{output}"
+        token = match.group(1)
 
         url = f"http://127.0.0.1:{port}/api/status"
         status = None
@@ -235,14 +274,10 @@ def test_serve_non_loopback_host_warns(tmp_path: Path) -> None:
         cwd=str(ws),
     )
     try:
-        # The warning is printed at startup; read until it (or EOF) appears.
-        output = ""
-        deadline = time.monotonic() + 15
-        while time.monotonic() < deadline and "Warning" not in output:
-            line = proc.stdout.readline()
-            if not line:
-                break
-            output += line
+        # The warning is printed at startup; read until it (or timeout)
+        # appears. _read_until is strictly bounded so a silent child cannot
+        # block the read forever.
+        output = _read_until(proc, "Warning")
         assert "Warning" in output, f"no non-loopback warning; output:\n{output}"
         assert "0.0.0.0" in output
     finally:
