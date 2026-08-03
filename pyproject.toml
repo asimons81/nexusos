@@ -97,6 +97,7 @@ addopts = ["--strict-markers", "--tb=short", "-q"]
 markers = [
     "slow: marks tests as slow",
     "integration: marks tests as integration tests",
+    "security: marks tests as security tests (filesystem boundaries, server exposure, immutable sources)",
 ]
 
 [tool.coverage.run]

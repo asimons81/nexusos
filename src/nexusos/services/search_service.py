@@ -5,7 +5,12 @@ from __future__ import annotations
 from pathlib import Path  # noqa: TC003
 
 from nexusos.core.errors import IndexingError, WorkspaceNotFoundError
-from nexusos.core.limits import MAX_SEARCH_LIMIT, MAX_SNIPPET_TOKENS, validate_limit
+from nexusos.core.limits import (
+    MAX_SEARCH_LIMIT,
+    MAX_SEARCH_TERM_LENGTH,
+    MAX_SNIPPET_TOKENS,
+    validate_limit,
+)
 from nexusos.indexing.kernel import IndexKernel
 from nexusos.indexing.models import SearchHit
 from nexusos.workspace.init import load_workspace_identity
@@ -52,7 +57,8 @@ def search_workspace(
 
     Raises:
         IndexingError: when ``limit`` or ``snippet_tokens`` is out of range
-            (F-06), the workspace is uninitialized, or the index is missing.
+            (F-06), ``term`` exceeds ``MAX_SEARCH_TERM_LENGTH`` (F-13), the
+            workspace is uninitialized, or the index is missing.
     """
     try:
         limit = validate_limit(limit, name="limit", maximum=MAX_SEARCH_LIMIT)
@@ -61,6 +67,12 @@ def search_workspace(
         )
     except ValueError as exc:
         raise IndexingError(str(exc), exit_code=2) from exc
+
+    if len(term) > MAX_SEARCH_TERM_LENGTH:
+        raise IndexingError(
+            f"search term must be at most {MAX_SEARCH_TERM_LENGTH} characters; got {len(term)}",
+            exit_code=2,
+        )
 
     identity = load_workspace_identity(workspace_root)
     if identity is None:

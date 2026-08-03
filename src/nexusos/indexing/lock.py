@@ -167,7 +167,11 @@ class IndexLock:
             self.release()
 
     def _write_new(self, payload: dict[str, Any]) -> None:
-        fd = os.open(str(self._lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+        # Owner-only permissions (0o600), consistent with workspace.json
+        # (written via mkstemp). The lock file contains an ownership token,
+        # pid, host, and run id; world-readable state files would expose that
+        # metadata to any local user (A3-07 F-09).
+        fd = os.open(str(self._lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(payload, fh)
 

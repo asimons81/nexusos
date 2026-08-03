@@ -135,6 +135,11 @@ class _NexusOSHandler(BaseHTTPRequestHandler):
     server_version = f"NexusOSServe/{__version__}"
     workspace_root: Path
     server_token: str = ""
+    #: Whether the API token may be embedded in the served root page. Only
+    #: True for loopback binds (A3-07 F-10): the root page is unauthenticated,
+    #: so embedding the token on a non-loopback bind would hand the access
+    #: control to every client that can reach the port.
+    inject_ui_token: bool = True
     _kernel: IndexKernel | None = None
 
     # -- helpers -------------------------------------------------------------
@@ -293,18 +298,34 @@ class _NexusOSHandler(BaseHTTPRequestHandler):
         index_html = UI_DIR / "index.html"
         if index_html.is_file():
             raw = index_html.read_bytes()
-            rendered = raw.replace(
-                _TOKEN_PLACEHOLDER.encode("ascii"), self.server_token.encode("ascii")
-            )
+            if self.inject_ui_token:
+                rendered = raw.replace(
+                    _TOKEN_PLACEHOLDER.encode("ascii"), self.server_token.encode("ascii")
+                )
+            else:
+                # Non-loopback bind: never hand the API token to an
+                # unauthenticated page (A3-07 F-10). Leave the placeholder out
+                # so the UI cannot auto-authenticate remotely; /api/* still
+                # requires the token via header.
+                rendered = raw.replace(_TOKEN_PLACEHOLDER.encode("ascii"), b"")
             self._send_bytes(rendered, content_type="text/html; charset=utf-8")
         else:
-            self._send_text(
-                "NexusOS kernel data server\n"
-                "Endpoints: /healthz /api/status /api/meta /api/counts "
-                "/api/documents /api/runs\n"
-                "API token: " + self.server_token + "\n",
-                content_type="text/plain; charset=utf-8",
-            )
+            if self.inject_ui_token:
+                body = (
+                    "NexusOS kernel data server\n"
+                    "Endpoints: /healthz /api/status /api/meta /api/counts "
+                    "/api/documents /api/runs\n"
+                    "API token: " + self.server_token + "\n"
+                )
+            else:
+                body = (
+                    "NexusOS kernel data server\n"
+                    "Endpoints: /healthz /api/status /api/meta /api/counts "
+                    "/api/documents /api/runs\n"
+                    "(API token not embedded on non-loopback binds; send it "
+                    "as the X-NexusOS-Token header on /api/* requests)\n"
+                )
+            self._send_text(body, content_type="text/plain; charset=utf-8")
 
     def _send_bytes(self, data: bytes, content_type: str) -> None:
         self.send_response(200)
@@ -429,13 +450,22 @@ def create_server(
     """
     root = Path(workspace_root).resolve(strict=False)
     server_token = token if token is not None else secrets.token_urlsafe(32)
+    # The API token is only embedded in the served root page for loopback
+    # binds (A3-07 F-10). On a non-loopback bind the page is unauthenticated,
+    # so embedding the token would leak the access control to any client that
+    # can reach the port; /api/* still requires the header everywhere.
+    inject_ui_token = is_loopback_host(host)
     # Bind the workspace root and token as class attributes on a per-server
     # handler subclass (partial() cannot inject extra constructor kwargs into
     # BaseHTTPRequestHandler).
     handler = type(
         "_NexusOSHandler",
         (_NexusOSHandler,),
-        {"workspace_root": root, "server_token": server_token},
+        {
+            "workspace_root": root,
+            "server_token": server_token,
+            "inject_ui_token": inject_ui_token,
+        },
     )
     server = _NexusOSServer((host, port), handler)
     server.nexusos_token = server_token

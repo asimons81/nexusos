@@ -506,8 +506,11 @@ def serve(
     if not is_loopback_host(bind_host):
         typer.echo(
             f"Warning: binding to non-loopback host {bind_host!r} exposes the "
-            "kernel-data API on the network. The API token is the only access "
-            "control; prefer 127.0.0.1/localhost for local use.",
+            "kernel-data API on the network. /api/* is protected only by the "
+            "per-process X-NexusOS-Token header; the token is NOT embedded in "
+            "the served UI page on non-loopback binds (A3-07 F-10). Prefer "
+            "127.0.0.1/localhost and an external security layer for any "
+            "non-loopback deployment.",
             err=True,
         )
 

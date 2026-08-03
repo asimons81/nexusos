@@ -21,6 +21,10 @@ MAX_RECENT_LIMIT = 100
 MAX_CONTEXT_SIBLING_LIMIT = 100
 #: Largest snippet token budget accepted by ``search``.
 MAX_SNIPPET_TOKENS = 10_000
+#: Longest search term accepted by any surface (CLI or MCP). A term longer
+#: than this is rejected up front so a single caller cannot force an
+#: unbounded FTS MATCH expression (A3-07 F-13).
+MAX_SEARCH_TERM_LENGTH = 10_000
 
 
 def validate_limit(value: int, *, name: str, maximum: int) -> int:
