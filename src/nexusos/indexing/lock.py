@@ -50,8 +50,9 @@ def _pid_alive_windows(pid: int) -> bool:
     still_active = 259
     access_denied = 5
 
-    win_dll: Any = getattr(ctypes, "WinDLL")
-    get_last_error: Any = getattr(ctypes, "get_last_error")
+    ctypes_namespace = vars(ctypes)
+    win_dll: Any = ctypes_namespace["WinDLL"]
+    get_last_error: Any = ctypes_namespace["get_last_error"]
     kernel32: Any = win_dll("kernel32", use_last_error=True)
     handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
     if not handle:
