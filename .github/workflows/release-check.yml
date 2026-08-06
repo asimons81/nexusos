@@ -79,7 +79,10 @@ jobs:
           nexusos index --workspace "$RUNNER_TEMP/nxo-ws"
           nexusos status --workspace "$RUNNER_TEMP/nxo-ws"
           nexusos search nexus --workspace "$RUNNER_TEMP/nxo-ws" >/dev/null
-          nexusos lint --workspace "$RUNNER_TEMP/nxo-ws" >/dev/null
+          # lint exits 0 when clean, 1 when findings are reported, 2 on error.
+          # The starter template intentionally reports collection-fallback
+          # findings; a run that completes is the smoke requirement.
+          nexusos lint --workspace "$RUNNER_TEMP/nxo-ws" >/dev/null 2>&1 || test $? -le 1
 
       - name: MCP stdio smoke (initialize + tool discovery + status)
         shell: bash
