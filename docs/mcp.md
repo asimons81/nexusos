@@ -4,7 +4,7 @@ NexusOS exposes a workspace index through the Model Context Protocol (MCP), allo
 agents to search, browse, read, inspect links, assemble deterministic context, check
 status, and refresh derived state without editing source documents.
 
-The current implementation is `v0.1.0-alpha.2`. Client compatibility is part of the
+The current implementation is `v0.1.0-alpha.3`. Client compatibility is part of the
 release-candidate validation plan in [../ROADMAP.md](../ROADMAP.md).
 
 > **Contract freeze (A3-05):** the MCP tool set, input schemas, bounds, and error
