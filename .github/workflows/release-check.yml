@@ -104,15 +104,15 @@ jobs:
               async with stdio_client(params) as (read, write):
                   async with ClientSession(read, write) as session:
                       info = await session.initialize()
-                      tools = await session.list_tools()
-                      names = {t.name for t in tools.tools}
-                      assert info.serverInfo.version == "0.1.0-rc.1", info.serverInfo
+                      listed = await session.list_tools()
+                      names = {t.name for t in listed.tools}
+                      assert info.server_info.version == "0.1.0-rc.1", info.server_info
                       assert {"browse", "context", "index", "links", "read",
                               "recent", "search", "status"} <= names, names
                       result = await session.call_tool("status", {})
                       text = "".join(c.text or "" for c in result.content)
                       assert "read_only" in text, text
-                      print("MCP stdio smoke OK: version", info.serverInfo.version,
+                      print("MCP stdio smoke OK: version", info.server_info.version,
                             "tools", sorted(names))
 
           asyncio.run(main())
