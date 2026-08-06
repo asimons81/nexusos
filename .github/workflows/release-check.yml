@@ -53,9 +53,16 @@ jobs:
           cd "$RUNNER_TEMP"
           uv venv nxo-smoke
           # Portable python lookup: bin/python on POSIX, Scripts/python.exe on Windows.
-          PY="$(ls "$RUNNER_TEMP/nxo-smoke"/bin/python "$RUNNER_TEMP/nxo-smoke"/Scripts/python.exe 2>/dev/null | head -1)"
-          echo "venv-python=$PY" >> "$GITHUB_ENV"
+          PY=""
+          if [ -f "$RUNNER_TEMP/nxo-smoke/bin/python" ]; then
+            PY="$RUNNER_TEMP/nxo-smoke/bin/python"
+          elif [ -f "$RUNNER_TEMP/nxo-smoke/Scripts/python.exe" ]; then
+            PY="$RUNNER_TEMP/nxo-smoke/Scripts/python.exe"
+          fi
+          test -n "$PY"
+          echo "VENV_PYTHON=$PY" >> "$GITHUB_ENV"
           WHEEL=$(find "$GITHUB_WORKSPACE/dist" -name '*.whl' | head -1)
+          test -n "$WHEEL"
           uv pip install --python "$PY" "$WHEEL"
 
       - name: Smoke sequence (install -> version -> init -> doctor -> index -> status -> search -> lint)
@@ -80,10 +87,11 @@ jobs:
           set -euxo pipefail
           VENV_BIN="$(dirname "$VENV_PYTHON")"
           export PATH="$VENV_BIN:$PATH"
-          python - <<PYEOF
-          import json, subprocess
+          export NXO_WS="$RUNNER_TEMP/nxo-ws"
+          python - <<'PYEOF'
+          import json, os, subprocess
           p = subprocess.Popen(
-              ["nexusos", "mcp", "--workspace", "$RUNNER_TEMP/nxo-ws"],
+              ["nexusos", "mcp", "--workspace", os.environ["NXO_WS"]],
               stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
           )
           def send(obj):
