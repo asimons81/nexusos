@@ -92,28 +92,30 @@ jobs:
           export PATH="$VENV_BIN:$PATH"
           export NXO_WS="$RUNNER_TEMP/nxo-ws"
           python - <<'PYEOF'
-          import json, os, subprocess
-          p = subprocess.Popen(
-              ["nexusos", "mcp", "--workspace", os.environ["NXO_WS"]],
-              stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-          )
-          def send(obj):
-              p.stdin.write((json.dumps(obj) + "\n").encode())
-              p.stdin.flush()
-          send({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
-              "protocolVersion": "2025-11-25",
-              "capabilities": {}, "clientInfo": {"name": "release-check", "version": "0.0.1"}}})
-          send({"jsonrpc": "2.0", "method": "notifications/initialized"})
-          send({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
-          send({"jsonrpc": "2.0", "id": 3, "method": "tools/call",
-                "params": {"name": "status", "arguments": {}}})
-          p.stdin.close()
-          out = p.stdout.read().decode()
-          p.wait(timeout=60)
-          assert "serverInfo" in out, out
-          assert '"name": "status"' in out or '"name":"status"' in out, out
-          assert "read_only" in out, out
-          print("MCP stdio smoke OK")
+          import asyncio, os
+          from mcp import ClientSession, StdioServerParameters
+          from mcp.client.stdio import stdio_client
+
+          async def main():
+              params = StdioServerParameters(
+                  command="nexusos",
+                  args=["mcp", "--workspace", os.environ["NXO_WS"]],
+              )
+              async with stdio_client(params) as (read, write):
+                  async with ClientSession(read, write) as session:
+                      info = await session.initialize()
+                      tools = await session.list_tools()
+                      names = {t.name for t in tools.tools}
+                      assert info.serverInfo.version == "0.1.0-rc.1", info.serverInfo
+                      assert {"browse", "context", "index", "links", "read",
+                              "recent", "search", "status"} <= names, names
+                      result = await session.call_tool("status", {})
+                      text = "".join(c.text or "" for c in result.content)
+                      assert "read_only" in text, text
+                      print("MCP stdio smoke OK: version", info.serverInfo.version,
+                            "tools", sorted(names))
+
+          asyncio.run(main())
           PYEOF
 
       - name: Record environment for manifest
