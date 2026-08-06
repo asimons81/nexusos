@@ -175,7 +175,7 @@ def test_streamable_http_handshake_and_tool_discovery(
 
     data = asyncio.run(_session_calls(http_server["url"], _run))
     assert data["name"] == "nexusos"
-    assert data["version"] == "0.1.0-alpha.2"
+    assert data["version"] == "0.1.0-alpha.3"
     assert data["tools"] == _EXPECTED_TOOLS
 
 
@@ -230,7 +230,7 @@ def test_streamable_http_status_search_read_context(
     status_payload = json.loads(_text_content(data["status"]))
     assert status_payload["status"] == "ready"
     assert status_payload["read_only"] is True
-    assert status_payload["server_version"] == "0.1.0-alpha.2"
+    assert status_payload["server_version"] == "0.1.0-alpha.3"
     assert status_payload["index_schema_version"] == 2
 
     assert not _is_error(data["search"])

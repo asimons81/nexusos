@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/asimons81/nexusos/actions/workflows/ci.yml"><img src="https://github.com/asimons81/nexusos/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
-  <img src="https://img.shields.io/badge/version-0.1.0--alpha.2-blue?style=flat-square" alt="Version 0.1.0-alpha.2"/>
+  <img src="https://img.shields.io/badge/version-0.1.0--alpha.3-blue?style=flat-square" alt="Version 0.1.0-alpha.3"/>
   <img src="https://img.shields.io/badge/status-pre--release-orange?style=flat-square" alt="Status: pre-release"/>
   <img src="https://img.shields.io/badge/python-3.11%2B-blue?style=flat-square" alt="Python 3.11+"/>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="License: Apache-2.0"/></a>
@@ -26,9 +26,10 @@ inside `.nexusos/`, then gives humans and agents deterministic tools to search, 
 read, inspect links, assemble context, and verify workspace health.
 
 > [!IMPORTANT]
-> NexusOS is **pre-release software** at `v0.1.0-alpha.2`. The planned v0.1 core feature
-> scope is implemented, but release hardening, packaging validation, cross-platform
-> proof, security review, and public contract freeze are still in progress. See the
+> NexusOS is **pre-release software** at `v0.1.0-alpha.3`. The planned v0.1 core feature
+> scope is implemented; release hardening, packaging validation, cross-platform
+> proof, security review, and public contract freeze are complete for this
+> prerelease. See the
 > [release roadmap](ROADMAP.md).
 
 ## Why NexusOS
@@ -48,7 +49,7 @@ NexusOS is built around a smaller contract:
 
 ## What works today
 
-`v0.1.0-alpha.2` includes:
+`v0.1.0-alpha.3` includes:
 
 - safe workspace initialization with blank and starter templates
 - path boundaries, deny paths, nested-workspace protection, and doctor checks

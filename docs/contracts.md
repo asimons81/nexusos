@@ -215,7 +215,7 @@ warning (A3-05 contract freeze).
 |---|---|
 | name | `nexusos` |
 | title | `NexusOS` |
-| version | package version (e.g. `0.1.0-alpha.2`) |
+| version | package version (e.g. `0.1.0-alpha.3`) |
 | instructions | descriptive text covering the tool set |
 
 Transports: stdio (`nexusos mcp` / `nexusos serve --transport stdio` /

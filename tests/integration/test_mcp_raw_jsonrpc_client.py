@@ -191,7 +191,7 @@ def test_raw_initialize_and_tool_discovery(raw_server: dict[str, Any]) -> None:
     client = RawStreamableClient(raw_server["url"])
     info = client.initialize()
     assert info["serverInfo"]["name"] == "nexusos"
-    assert info["serverInfo"]["version"] == "0.1.0-alpha.2"
+    assert info["serverInfo"]["version"] == "0.1.0-alpha.3"
     assert info["protocolVersion"] == _PROTOCOL_VERSION
 
     tools = client.list_tools()

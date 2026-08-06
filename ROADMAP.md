@@ -1,7 +1,7 @@
 # NexusOS v0.1 Release Roadmap
 
-> **Current release:** `v0.1.0-alpha.2`  
-> **Current phase:** release hardening  
+> **Current release:** `v0.1.0-alpha.3`  
+> **Current phase:** release hardening complete; release candidate validation next  
 > **Target:** a boring, trustworthy `v0.1.0` that installs cleanly, behaves consistently,
 > and gives agents a stable local memory contract.
 
@@ -30,7 +30,7 @@ The following rules apply until `v0.1.0` ships:
 | Release | Purpose | Exit condition |
 |---|---|---|
 | `v0.1.0-alpha.2` | Core feature scope | Shipped |
-| `v0.1.0-alpha.3` | Hardening and release infrastructure | All A3 tasks complete |
+| `v0.1.0-alpha.3` | Hardening and release infrastructure | Shipped |
 | `v0.1.0-rc.1` | Real-world install and client validation | All RC tasks complete |
 | `v0.1.0` | Stable release | All stable gates complete |
 

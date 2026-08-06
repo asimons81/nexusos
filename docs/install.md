@@ -4,12 +4,12 @@ NexusOS is a local-first knowledge index for Markdown vaults. This guide covers
 supported environments, dependencies, installation, upgrades, and how to use
 the verified release artifacts.
 
-**Current release:** `v0.1.0-alpha.2` (runtime version `0.1.0-alpha.2`,
-package version `0.1.0a2`)
+**Current release:** `v0.1.0-alpha.3` (runtime version `0.1.0-alpha.3`,
+package version `0.1.0a3`)
 
 > [!IMPORTANT]
 > NexusOS is pre-release software. The `v0.1` core feature scope is implemented,
-> but release hardening is still in progress. See
+> and release hardening is complete for this prerelease. See
 > [ROADMAP.md](../ROADMAP.md) and the
 > [v0.1 release notes](releases/v0.1.md) before deploying it somewhere
 > important.
@@ -70,7 +70,7 @@ git clone https://github.com/asimons81/nexusos.git
 cd nexusos
 uv sync
 
-uv run nexusos version        # => nexusos 0.1.0-alpha.2
+uv run nexusos version        # => nexusos 0.1.0-alpha.3
 ```
 
 `uv run` uses the project virtualenv. If you prefer a global install from the
@@ -82,15 +82,15 @@ uv pip install --system .
 
 ### Option B — verified wheel artifact
 
-Download `nexusos-0.1.0a2-py3-none-any.whl` from the release artifacts (or
+Download `nexusos-0.1.0a3-py3-none-any.whl` from the release artifacts (or
 build it per [docs/releasing.md](releasing.md)), then:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install nexusos-0.1.0a2-py3-none-any.whl
+pip install nexusos-0.1.0a3-py3-none-any.whl
 
-nexusos version                  # => nexusos 0.1.0-alpha.2
+nexusos version                  # => nexusos 0.1.0-alpha.3
 ```
 
 ### Option C — verified sdist artifact
@@ -98,9 +98,9 @@ nexusos version                  # => nexusos 0.1.0-alpha.2
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install nexusos-0.1.0a2.tar.gz
+pip install nexusos-0.1.0a3.tar.gz
 
-nexusos version                  # => nexusos 0.1.0-alpha.2
+nexusos version                  # => nexusos 0.1.0-alpha.3
 ```
 
 ### Verify the install
@@ -116,7 +116,7 @@ nexusos status --workspace ./my-workspace
 nexusos search "your term" --workspace ./my-workspace
 ```
 
-All commands above were verified against the `0.1.0a2` wheel and sdist in
+All commands above were verified against the `0.1.0a3` wheel and sdist in
 clean environments (see [docs/release/v0.1.0-manifest.md](release/v0.1.0-manifest.md)).
 
 ## Upgrade
@@ -171,10 +171,10 @@ environment smoke tests.
 sha256sum -c SHA256SUMS          # or compare against the manifest table
 ```
 
-Artifacts (v0.1.0-alpha.2, build commit `799ecc5`):
+Artifacts (v0.1.0-alpha.3, build commit `ed46376`):
 
-- `nexusos-0.1.0a2-py3-none-any.whl`
-- `nexusos-0.1.0a2.tar.gz`
+- `nexusos-0.1.0a3-py3-none-any.whl`
+- `nexusos-0.1.0a3.tar.gz`
 
 ## Uninstall
 
