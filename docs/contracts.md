@@ -1,6 +1,6 @@
 # NexusOS Public Contracts
 
-> Status: frozen for `v0.1.0-alpha.3` by roadmap task **A3-05**.
+> Status: frozen for `v0.1.0-rc.1` by roadmap task **A3-05** (unchanged from the alpha.3 freeze; RC-05 audit confirms the public surface is unchanged).
 >
 > This document is the inventory of the public interface users and agents can
 > depend on. It is generated from the implementation and verified by the
