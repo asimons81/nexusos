@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.1.0-rc.1 (2026-08-06)
+
+Release candidate for stable `v0.1.0`. Same feature surface as `v0.1.0-alpha.3`
+(the planned v0.1 core scope, A3 hardening, contract freeze, and security review
+are complete); this candidate is the real-world install and client validation
+gate before the stable release.
+
+### Added
+
+- **RC-02 clean-machine validation**: a `Release Check` workflow
+  (`.github/workflows/release-check.yml`) installs the built wheel into a fresh
+  virtual environment on Linux, macOS, and Windows and runs the documented
+  smoke sequence (`version`, `--help`, `demo`, `init`, `doctor`, `index`,
+  `status`, `search`, `lint`) plus an MCP stdio handshake from the installed
+  artifact. GitHub-hosted runners are ephemeral clean machines; this is the
+  clean-install evidence recorded in the artifact manifest.
+- **Release signing key registry**: `.github/release-signers` lists the SSH
+  public key used to verify stable release tags (CI `git tag -v` gate).
+
+### Changed
+
+- Version bumped to `0.1.0rc1` (package) / `0.1.0-rc.1` (runtime) across
+  `pyproject.toml`, `src/nexusos/__init__.py`, README, CHANGELOG, ROADMAP,
+  SECURITY, `docs/install.md`, `docs/mcp.md`, `docs/contracts.md`,
+  `docs/releases/v0.1.md`, the release checklist, and the MCP version
+  assertions in tests. The public contract freeze (A3-05 / RC-05) is in
+  effect: no CLI, configuration, MCP, JSON, or exit-code contract changed for
+  this candidate.
+
 ## 0.1.0-alpha.3 (2026-08-05)
 
 ### Added

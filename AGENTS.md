@@ -9,7 +9,7 @@ NexusOS is a local-first knowledge operating system for AI agents. The v0.1 rele
 must provide a small, deterministic, well-tested memory contract over files the user
 owns.
 
-The repository is currently in **release hardening** for `v0.1.0-alpha.3`. The planned
+The repository is currently in **release candidate validation** for `v0.1.0-rc.1`. The planned
 core v0.1 feature scope shipped in `v0.1.0-alpha.2`. Do not add unrelated product scope
 before stable release.
 

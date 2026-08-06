@@ -7,8 +7,8 @@ has not yet declared a stable support window.
 
 | Version | Status |
 |---|---|
-| `0.1.0-alpha.3` | Current prerelease, receiving security fixes |
-| `0.1.0-alpha.2` | Previous prerelease, receiving security fixes until `v0.1.0` |
+| `0.1.0-rc.1` | Current release candidate, receiving security fixes |
+| `0.1.0-alpha.3` | Previous prerelease, receiving security fixes until `v0.1.0` |
 | Earlier commits and unreleased snapshots | Best effort only |
 
 The policy will be updated when `v0.1.0` is released.

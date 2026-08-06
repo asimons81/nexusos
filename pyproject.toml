@@ -1,6 +1,6 @@
 [project]
 name = "nexusos"
-version = "0.1.0a3"
+version = "0.1.0rc1"
 description = "Local-first knowledge operating system for AI agents"
 readme = "README.md"
 license = { text = "Apache-2.0" }
