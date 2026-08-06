@@ -632,7 +632,7 @@ wheels = [
 
 [[package]]
 name = "nexusos"
-version = "0.1.0a3"
+version = "0.1.0rc1"
 source = { editable = "." }
 dependencies = [
     { name = "mcp" },

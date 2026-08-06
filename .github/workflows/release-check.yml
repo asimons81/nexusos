@@ -1,0 +1,127 @@
+name: Release Check
+
+# RC-02 clean-machine validation: install the built wheel into a fresh
+# virtual environment on each supported OS and run the documented smoke
+# sequence. GitHub-hosted runners are ephemeral clean machines; this is the
+# clean-install evidence for the release candidate and stable gates
+# (docs/release/v1-build-spec.md §4.3, ROADMAP RC-02).
+#
+# Triggered on:
+#   - push of any v* tag (the release sequence)
+#   - manual dispatch against a release branch (pre-tag validation)
+#   - pull requests touching .github/workflows/release-check.yml
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+  pull_request:
+    paths: [".github/workflows/release-check.yml"]
+
+jobs:
+  clean-install:
+    name: Clean install smoke (${{ matrix.os }} / py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      NO_COLOR: "1"
+      TYPER_USE_RICH: "0"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Build artifacts
+        run: |
+          uv sync --all-extras
+          uv run --with build python -m build
+          uv run --with twine twine check dist/*
+
+      - name: Install wheel into a clean venv (outside the repo)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd "$RUNNER_TEMP"
+          uv venv nxo-smoke
+          # Portable python lookup: bin/python on POSIX, Scripts/python.exe on Windows.
+          PY=""
+          if [ -f "$RUNNER_TEMP/nxo-smoke/bin/python" ]; then
+            PY="$RUNNER_TEMP/nxo-smoke/bin/python"
+          elif [ -f "$RUNNER_TEMP/nxo-smoke/Scripts/python.exe" ]; then
+            PY="$RUNNER_TEMP/nxo-smoke/Scripts/python.exe"
+          fi
+          test -n "$PY"
+          echo "VENV_PYTHON=$PY" >> "$GITHUB_ENV"
+          WHEEL=$(find "$GITHUB_WORKSPACE/dist" -name '*.whl' | head -1)
+          test -n "$WHEEL"
+          uv pip install --python "$PY" "$WHEEL"
+
+      - name: Smoke sequence (install -> version -> init -> doctor -> index -> status -> search -> lint)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          VENV_BIN="$(dirname "$VENV_PYTHON")"
+          export PATH="$VENV_BIN:$PATH"
+          nexusos version
+          nexusos --help >/dev/null
+          nexusos demo >/dev/null
+          nexusos init --template starter "$RUNNER_TEMP/nxo-ws"
+          nexusos doctor --workspace "$RUNNER_TEMP/nxo-ws"
+          nexusos index --workspace "$RUNNER_TEMP/nxo-ws"
+          nexusos status --workspace "$RUNNER_TEMP/nxo-ws"
+          nexusos search nexus --workspace "$RUNNER_TEMP/nxo-ws" >/dev/null
+          # lint exits 0 when clean, 1 when findings are reported, 2 on error.
+          # The starter template intentionally reports collection-fallback
+          # findings; a run that completes is the smoke requirement.
+          nexusos lint --workspace "$RUNNER_TEMP/nxo-ws" >/dev/null 2>&1 || test $? -le 1
+
+      - name: MCP stdio smoke (initialize + tool discovery + status)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          VENV_BIN="$(dirname "$VENV_PYTHON")"
+          export PATH="$VENV_BIN:$PATH"
+          export NXO_WS="$RUNNER_TEMP/nxo-ws"
+          python - <<'PYEOF'
+          import asyncio, os
+          from mcp import ClientSession, StdioServerParameters
+          from mcp.client.stdio import stdio_client
+
+          async def main():
+              params = StdioServerParameters(
+                  command="nexusos",
+                  args=["mcp", "--workspace", os.environ["NXO_WS"]],
+              )
+              async with stdio_client(params) as (read, write):
+                  async with ClientSession(read, write) as session:
+                      info = await session.initialize()
+                      listed = await session.list_tools()
+                      names = {t.name for t in listed.tools}
+                      assert info.server_info.version == "0.1.0-rc.1", info.server_info
+                      assert {"browse", "context", "index", "links", "read",
+                              "recent", "search", "status"} <= names, names
+                      result = await session.call_tool("status", {})
+                      text = "".join(c.text or "" for c in result.content)
+                      assert "read_only" in text, text
+                      print("MCP stdio smoke OK: version", info.server_info.version,
+                            "tools", sorted(names))
+
+          asyncio.run(main())
+          PYEOF
+
+      - name: Record environment for manifest
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python --version
+          uname -a || true
+          echo "runner-os=${{ matrix.os }} runner-py=${{ matrix.python-version }}"

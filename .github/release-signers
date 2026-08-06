@@ -1,0 +1,7 @@
+# Release signing keys (SSH signatures for verified release tags).
+# Public keys only — never private keys. CI verifies tags with:
+#   git config gpg.ssh.allowedSignersFile .github/release-signers
+#   git tag -v <tag>
+# See docs/releasing.md and docs/release/v1-build-spec.md §6.
+
+asimons81@gmail.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO+ub1Jq8WNhXx0hAztnCM8kcPNlR57kuCWDwN1vvvmt
