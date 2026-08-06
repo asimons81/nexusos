@@ -72,7 +72,7 @@ inspection UI), plus the release-hardening work:
 | Artifact | SHA-256 |
 |---|---|
 | `nexusos-0.1.0a3-py3-none-any.whl` | `e8cee62283801235026635587c876b3360d7ad421873de3c0e99aee6c6156038` |
-| `nexusos-0.1.0a3.tar.gz` | `45ddb49b2668579b34d43b48eeb7fcc496fcb3b85876c1dbc11709c087de277e` |
+| `nexusos-0.1.0a3.tar.gz` | `b7215cf4f87b9883d3d6ebd2848138caf2d743d6ea62d781189a40d3ea5409ef` |
 
 Clean-install verified from both artifacts (fresh venvs, no source checkout):
 `version`, `--help`, `init`, `doctor` (13/13), `index`, `status`, `search`,
