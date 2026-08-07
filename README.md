@@ -66,27 +66,33 @@ writes, cloud hosting, OAuth, sync, or multi-user collaboration.
 
 ## Quick start
 
-NexusOS is not yet published as a stable PyPI package. Run it from a source
-checkout (full instructions: [docs/install.md](docs/install.md)):
+Install the stable release from PyPI (full instructions: [docs/install.md](docs/install.md)):
 
 ```bash
-git clone https://github.com/asimons81/nexusos.git
-cd nexusos
-uv sync
+pip install nexusos
 
-uv run nexusos version
-uv run nexusos init ./example-workspace
-uv run nexusos doctor --workspace ./example-workspace
-uv run nexusos index --workspace ./example-workspace
-uv run nexusos status --workspace ./example-workspace
-uv run nexusos browse --workspace ./example-workspace
-uv run nexusos search "workspace" --workspace ./example-workspace
+nexusos version
+nexusos init ./example-workspace
+nexusos doctor --workspace ./example-workspace
+nexusos index --workspace ./example-workspace
+nexusos status --workspace ./example-workspace
+nexusos browse --workspace ./example-workspace
+nexusos search "workspace" --workspace ./example-workspace
 ```
 
 For a disposable end-to-end walkthrough:
 
 ```bash
-uv run nexusos demo
+nexusos demo
+```
+
+For development from source:
+
+```bash
+git clone https://github.com/asimons81/nexusos.git
+cd nexusos
+uv sync
+uv run nexusos version
 ```
 
 ## How it works
@@ -123,7 +129,7 @@ format and can be recovered without NexusOS because they never left the filesyst
 | `nexusos browse` | List indexed documents |
 | `nexusos read ITEM` | Read a document by ID, path, or name |
 | `nexusos recent` | List recently modified documents |
-| `nexusos links ITEM` | Inspect incoming and outgoing wiki links |
+| `nexusos links ITEM` | Inspect incoming and outgoing wiki-link state |
 | `nexusos context ITEM` | Build a deterministic evidence packet |
 | `nexusos lint --workspace PATH` | Lint a workspace vault |
 | `nexusos mcp` | Start the MCP server over stdio |
