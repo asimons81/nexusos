@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 
+from nexusos.core.link_suffixes import LINK_SUFFIXES
 from nexusos.discovery.models import DiscoveredFile
 from nexusos.parsing.models import ParsedDocument
 
@@ -51,7 +52,7 @@ def parse_plaintext(
 
 def _filename_stem(normalized_path: str) -> str:
     name = normalized_path.rsplit("/", 1)[-1]
-    for suffix in (".md", ".markdown", ".txt"):
+    for suffix in LINK_SUFFIXES:
         if name.endswith(suffix):
             return name[: -len(suffix)]
     return name

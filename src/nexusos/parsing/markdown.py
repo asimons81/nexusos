@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Sequence  # noqa: TC003
 
+from nexusos.core.link_suffixes import LINK_SUFFIXES
 from nexusos.discovery.models import DiscoveredFile
 from nexusos.parsing.frontmatter import extract_frontmatter
 from nexusos.parsing.headings import extract_headings
@@ -97,7 +98,7 @@ def _resolve_title(
 
     # Filename stem
     name = normalized_path.rsplit("/", 1)[-1]
-    for suffix in (".md", ".markdown", ".txt"):
+    for suffix in LINK_SUFFIXES:
         if name.endswith(suffix):
             name = name[: -len(suffix)]
             break

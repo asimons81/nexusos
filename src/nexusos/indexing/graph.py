@@ -7,6 +7,7 @@ the resolved links.
 
 from __future__ import annotations
 
+from nexusos.core.link_suffixes import LINK_SUFFIXES
 from nexusos.indexing.kernel import IndexKernel
 from nexusos.indexing.models import IndexedLink
 
@@ -63,7 +64,7 @@ def resolve_links(
 
             # Try with suffix
             found = False
-            for suffix in (".md", ".markdown", ".txt"):
+            for suffix in LINK_SUFFIXES:
                 target_id = path_to_id.get(slug + suffix)
                 if target_id is not None and target_id in all_document_ids:
                     resolved_links.append(
@@ -124,7 +125,7 @@ def resolve_links(
 def _path_stem(normalized_path: str) -> str:
     """Return the filename stem (no directory, no suffix)."""
     name = normalized_path.rsplit("/", 1)[-1]
-    for suffix in (".md", ".markdown", ".txt"):
+    for suffix in LINK_SUFFIXES:
         if name.endswith(suffix):
             return name[: -len(suffix)]
     return name

@@ -21,7 +21,7 @@ Not every setting has a CLI flag.
 name = "my-knowledge-base"
 
 [files]
-include = ["**/*.md", "**/*.txt"]
+include = ["**/*.md", "**/*.markdown", "**/*.txt"]
 exclude = [
   "**/.nexusos/**",
   "**/node_modules/**",

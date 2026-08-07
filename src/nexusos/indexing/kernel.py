@@ -22,6 +22,7 @@ from nexusos.core.errors import (
     WorkspaceMismatchError,
     WorkspaceNotFoundError,
 )
+from nexusos.core.link_suffixes import LINK_SUFFIXES
 from nexusos.core.models import WorkspaceIdentity
 from nexusos.core.path_safety import validate_within_workspace
 from nexusos.indexing.database import IndexDatabase
@@ -44,9 +45,6 @@ from nexusos.workspace.init import load_workspace_identity
 
 T = TypeVar("T")
 
-#: Suffixes stripped when normalizing a wiki-link target for candidate lookup.
-_LINK_SUFFIXES = (".markdown", ".md", ".txt")
-
 
 def _normalize_slug(target: str) -> str:
     """Normalize a link target into a forward-slash relative slug.
@@ -57,7 +55,7 @@ def _normalize_slug(target: str) -> str:
     slug = target.replace("\\", "/").strip()
     while slug.startswith("./"):
         slug = slug[2:]
-    for suffix in _LINK_SUFFIXES:
+    for suffix in LINK_SUFFIXES:
         if slug.endswith(suffix):
             slug = slug[: -len(suffix)]
             break
@@ -67,7 +65,7 @@ def _normalize_slug(target: str) -> str:
 def _path_stem(normalized_path: str) -> str:
     """Return the filename stem of a normalized path (no directory, no suffix)."""
     name = normalized_path.rsplit("/", 1)[-1]
-    for suffix in _LINK_SUFFIXES:
+    for suffix in LINK_SUFFIXES:
         if name.endswith(suffix):
             return name[: -len(suffix)]
     return name
@@ -221,7 +219,7 @@ class IndexKernel:
         self._require_open()
         slug = _normalize_slug(target)
         # Tier 1: explicit normalized-path match (with or without suffix).
-        for candidate_slug in (slug, *(f"{slug}{suffix}" for suffix in _LINK_SUFFIXES)):
+        for candidate_slug in (slug, *(f"{slug}{suffix}" for suffix in LINK_SUFFIXES)):
             exact = self._db.get_candidate_by_normalized_path(candidate_slug)
             if exact is not None:
                 return [exact]

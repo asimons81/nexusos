@@ -36,6 +36,7 @@ must not edit source files.
 |---|---|---|
 | `broken-links` | fail | Wiki links with no matching document |
 | `ambiguous-links` | fail | Wiki links matching multiple candidates |
+| `unreadable-files` | fail | Source files that cannot be read or decoded as UTF-8 |
 | `invalid-frontmatter` | fail | Frontmatter parse failures and invalid structure |
 | `duplicate-slugs` | fail | Multiple documents sharing a filename stem |
 | `stale-index` | fail | Missing or stale derived index state |

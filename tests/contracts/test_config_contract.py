@@ -57,7 +57,7 @@ TOML_SURFACE = {
 #: Model field → documented default (docs/contracts.md §2.2, from the model).
 DEFAULTS = {
     "workspace_name": "default",
-    "include_patterns": ["**/*.md", "**/*.txt"],
+    "include_patterns": ["**/*.md", "**/*.markdown", "**/*.txt"],
     "exclude_patterns": [
         "**/.nexusos/**",
         "**/node_modules/**",

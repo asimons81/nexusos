@@ -69,7 +69,7 @@ STARTER_CONFIG = """# NexusOS Workspace Configuration
 name = "{workspace_name}"
 
 [files]
-include = ["**/*.md", "**/*.txt"]
+include = ["**/*.md", "**/*.markdown", "**/*.txt"]
 exclude = [
     "**/.nexusos/**",
     "**/node_modules/**",
@@ -118,7 +118,7 @@ BLANK_CONFIG = """# NexusOS Workspace Configuration
 name = "{workspace_name}"
 
 [files]
-include = ["**/*.md", "**/*.txt"]
+include = ["**/*.md", "**/*.markdown", "**/*.txt"]
 exclude = [
     "**/.nexusos/**",
     "**/node_modules/**",

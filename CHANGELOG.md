@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **HIGH-1 (audit t_df7b1a08)** — `.markdown` sources are now included by
+  default: `include_patterns` defaults to
+  `["**/*.md", "**/*.markdown", "**/*.txt"]` and both workspace templates
+  (`blank`, `starter`) advertise the `.markdown` glob. Previously the
+  scanner advertised `.markdown` as an indexed extension but the default
+  include patterns silently dropped such files from discovery, indexing,
+  search, and status.
+- **HIGH-2 (audit t_df7b1a08)** — wiki-link resolution now uses one shared
+  canonical suffix order (`nexusos.core.link_suffixes.LINK_SUFFIXES`,
+  `.md` first) across the index-time graph resolver, the navigation kernel,
+  parsing slug normalizers, and the vault linter. Previously the kernel
+  tried `.markdown` before `.md`, so `[[foo]]` in the link graph and
+  `nexusos read foo` could resolve to different documents when both
+  `foo.md` and `foo.markdown` existed.
+- **MED-3 (audit t_df7b1a08)** — `nexusos lint --workspace` no longer
+  crashes on source files that cannot be decoded as UTF-8. Unreadable or
+  malformed files are reported as a structured `unreadable-files` lint
+  finding instead of aborting the run with an unexpected error.
+
 ## 0.1.0-rc.1 (2026-08-06)
 
 Release candidate for stable `v0.1.0`. Same feature surface as `v0.1.0-alpha.3`

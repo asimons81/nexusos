@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 
+from nexusos.core.link_suffixes import LINK_SUFFIXES
 from nexusos.parsing.models import ParsedWikiLink
 
 # Match [[target]] or [[target|label]] (does not cross fences)
@@ -65,7 +66,7 @@ def _normalize_slug(target: str) -> str:
     while slug.startswith("./"):
         slug = slug[2:]
     # Strip .md/.markdown/.txt suffix for slug (document resolution strips those)
-    for suffix in (".markdown", ".md", ".txt"):
+    for suffix in LINK_SUFFIXES:
         if slug.endswith(suffix):
             slug = slug[: -len(suffix)]
             break

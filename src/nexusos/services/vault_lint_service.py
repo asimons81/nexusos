@@ -16,6 +16,7 @@ Checks implemented (v0.1.0):
   - empty-documents    source files with no body content
   - symlink-escapes    symlinks resolving outside the workspace
   - outside-collections  files not under any configured collection directory
+  - unreadable-files   source files that cannot be read or decoded as UTF-8
 
 All checks reuse the discovery scanner and the parsing modules; link
 resolution mirrors ``nexusos.indexing.graph`` so findings agree with what
@@ -28,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from nexusos.core.config import load_config_effective
+from nexusos.core.link_suffixes import LINK_SUFFIXES
 from nexusos.core.models import (
     VaultLintCheck,
     VaultLintFinding,
@@ -51,9 +53,11 @@ CHECK_OVERSIZED_FILES = "oversized-files"
 CHECK_EMPTY_DOCUMENTS = "empty-documents"
 CHECK_SYMLINK_ESCAPES = "symlink-escapes"
 CHECK_OUTSIDE_COLLECTIONS = "outside-collections"
+CHECK_UNREADABLE_FILES = "unreadable-files"
 
-#: Suffixes stripped when resolving wiki-link targets (mirrors graph.py).
-_RESOLVABLE_SUFFIXES = (".md", ".markdown", ".txt")
+#: Suffixes stripped when resolving wiki-link targets (canonical order from
+#: ``nexusos.core.link_suffixes``; mirrors graph.py and kernel.py).
+_RESOLVABLE_SUFFIXES = LINK_SUFFIXES
 
 
 def _path_stem(normalized_path: str) -> str:
@@ -61,12 +65,26 @@ def _path_stem(normalized_path: str) -> str:
     return Path(normalized_path.replace("\\", "/")).stem
 
 
+def _read_source_text(path: Path) -> tuple[str | None, str | None]:
+    """Read a source file as UTF-8; return ``(text, None)`` on success.
+
+    Returns ``(None, error_message)`` when the file cannot be read or is
+    not valid UTF-8. Per-file read/decoding problems never raise, so one
+    malformed source file cannot abort the whole lint run (audit MED-3).
+    """
+    try:
+        return path.read_text(encoding="utf-8"), None
+    except OSError as exc:
+        return None, f"cannot read file: {exc}"
+    except UnicodeDecodeError as exc:
+        return None, f"file is not valid UTF-8: {exc}"
+
+
 def _parse_document(workspace_root: Path, discovered: Any) -> ParsedDocument | None:
     """Read + parse one discovered file read-only; None on read failure."""
     path = workspace_root / discovered.relative_path
-    try:
-        source_text = path.read_text(encoding="utf-8")
-    except OSError:
+    source_text, error = _read_source_text(path)
+    if source_text is None or error is not None:
         return None
     if discovered.file_type == "plaintext":
         return parse_plaintext(discovered, source_text)
@@ -161,6 +179,30 @@ def run_vault_lint(workspace_root: Path) -> VaultLintReport:
             if ambiguous
             else "no ambiguous wiki links",
             findings=ambiguous,
+        )
+    )
+
+    # -- unreadable files ------------------------------------------------------
+    # Files that cannot be read (OSError) or decoded as UTF-8
+    # (UnicodeDecodeError) are reported here and skipped by the other
+    # per-file checks; one malformed file never aborts the run (MED-3).
+    unreadable: list[VaultLintFinding] = []
+    for f in discovery.files:
+        _, error = _read_source_text(root / f.relative_path)
+        if error is not None:
+            unreadable.append(
+                VaultLintFinding(
+                    check=CHECK_UNREADABLE_FILES,
+                    path=f.relative_path,
+                    message=error,
+                )
+            )
+    checks.append(
+        VaultLintCheck(
+            name=CHECK_UNREADABLE_FILES,
+            status="fail" if unreadable else "pass",
+            message=f"{len(unreadable)} unreadable file(s)" if unreadable else "all files readable",
+            findings=unreadable,
         )
     )
 

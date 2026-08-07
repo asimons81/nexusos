@@ -125,7 +125,7 @@ sections fail with a `ConfigError` (exit 2) naming the exact key. The
 | Section | Key | Model field | Default | Validation |
 |---|---|---|---|---|
 | `[workspace]` | `name` | `workspace_name` | `"default"` | string |
-| `[files]` | `include` | `include_patterns` | `["**/*.md", "**/*.txt"]` | list of globs |
+| `[files]` | `include` | `include_patterns` | `["**/*.md", "**/*.markdown", "**/*.txt"]` | list of globs |
 | `[files]` | `exclude` | `exclude_patterns` | `["**/.nexusos/**", "**/node_modules/**", "**/__pycache__/**", "**/.git/**", "**/.direnv/**"]` | list of globs |
 | `[limits]` | `max_file_size_bytes` | `max_file_size_bytes` | `10485760` (10 MiB) | non-negative int |
 | `[limits]` | `symlink_policy` | `symlink_policy` | `"ignore"` | `ignore` / `warn` / `deny` |

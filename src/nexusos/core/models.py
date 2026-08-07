@@ -47,7 +47,9 @@ class NexusOSConfig(BaseModel):
     root: Path | None = None
 
     # File patterns
-    include_patterns: list[str] = Field(default_factory=lambda: ["**/*.md", "**/*.txt"])
+    include_patterns: list[str] = Field(
+        default_factory=lambda: ["**/*.md", "**/*.markdown", "**/*.txt"]
+    )
     exclude_patterns: list[str] = Field(
         default_factory=lambda: [
             "**/.nexusos/**",
