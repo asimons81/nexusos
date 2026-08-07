@@ -22,6 +22,17 @@
   crashes on source files that cannot be decoded as UTF-8. Unreadable or
   malformed files are reported as a structured `unreadable-files` lint
   finding instead of aborting the run with an unexpected error.
+- **MED-4 (audit t_df7b1a08)** — changing parse-, discovery-, or
+  chunk-affecting configuration now marks status stale and forces affected
+  derived state to be rebuilt on the next incremental index. Previously an
+  unchanged source mtime/size could leave old chunks behind after a config edit.
+
+### Performance
+
+- **MED-5 (audit t_df7b1a08)** — no-op incremental indexing now compares
+  lightweight persisted signatures and reads links directly instead of
+  reassembling every unchanged document twice. A bounded regression test
+  verifies zero full-document assemblies on the no-op path.
 
 ## 0.1.0-rc.1 (2026-08-06)
 

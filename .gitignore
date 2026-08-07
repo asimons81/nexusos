@@ -30,6 +30,7 @@ Thumbs.db
 
 # --- Audit scratch (one-off review artifacts, not part of the repo) ---
 review-artifacts/
+.worktrees/
 
 # --- Editor / IDE ---
 .idea/
