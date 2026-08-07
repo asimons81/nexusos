@@ -33,6 +33,7 @@ from nexusos.indexing.models import (
     IncomingLink,
     IndexCounts,
     IndexedDocument,
+    IndexedLink,
     IndexRunRecord,
     RecentDocument,
     SearchHit,
@@ -286,6 +287,16 @@ class IndexKernel:
         """
         self._require_open()
         return self._db.list_document_signatures()
+
+    def list_document_links(self) -> list[tuple[str, list[IndexedLink]]]:
+        """Return persisted wiki-links grouped by source document (read-only).
+
+        Lightweight variant of full document assembly used by the indexer's
+        link-resolution phase, so a no-op incremental pass never reassembles
+        unchanged documents (MED-5).
+        """
+        self._require_open()
+        return self._db.list_document_links()
 
     def get_document_by_id(self, document_id: str) -> IndexedDocument | None:
         """Return a full document by its deterministic identifier, or None."""

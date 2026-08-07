@@ -442,6 +442,35 @@ class IndexDatabase:
             for r in rows
         ]
 
+    def list_document_links(self) -> list[tuple[str, list[IndexedLink]]]:
+        """Return persisted wiki-links grouped by source document.
+
+        Lightweight variant of :meth:`_assemble_document` used by the
+        indexer's link-resolution phase: reads only the ``links`` table
+        (never headings, chunks, or FTS rows), so a no-op incremental pass
+        does not pay for full document assembly (MED-5).
+        """
+        self._require_open()
+        rows = self._fetchall(
+            "SELECT * FROM links ORDER BY source_document_id ASC, source_line ASC, link_id ASC"
+        )
+        grouped: dict[str, list[IndexedLink]] = {}
+        for link_row in rows:
+            doc_id = _as_str(link_row, "source_document_id")
+            grouped.setdefault(doc_id, []).append(
+                IndexedLink(
+                    source_line=_as_int(link_row, "source_line"),
+                    raw_target=_as_str(link_row, "raw_target"),
+                    target_slug=_as_str(link_row, "target_slug"),
+                    target_heading=_as_optional_str(link_row, "target_heading"),
+                    label=_as_optional_str(link_row, "label"),
+                    target_document_id=_as_optional_str(link_row, "target_document_id"),
+                    resolved=bool(_as_int(link_row, "resolved")),
+                    resolution_state=_as_str(link_row, "resolution_state"),
+                )
+            )
+        return [(doc_id, grouped[doc_id]) for doc_id in sorted(grouped)]
+
     def counts(self) -> IndexCounts:
         """Return row counts for status reporting."""
         self._require_open()

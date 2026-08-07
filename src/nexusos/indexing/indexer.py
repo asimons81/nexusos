@@ -119,8 +119,13 @@ def _index_pass(
     """Core indexing logic inside a transaction and lock."""
     discovery = scan_workspace(workspace_root, config)
 
-    # Record config fingerprint
+    # Record config fingerprint. The stored value must be compared BEFORE
+    # overwriting: a changed fingerprint invalidates derived state (chunking,
+    # collections, include/exclude discovery) that mtime/size change
+    # detection would otherwise miss (MED-4).
     fingerprint = _config_fingerprint(config)
+    stored_fingerprint = kernel.get_meta("config_fingerprint")
+    config_changed = stored_fingerprint is not None and stored_fingerprint != fingerprint
     kernel.set_meta("config_fingerprint", fingerprint)
 
     # Determine what changed
@@ -147,17 +152,21 @@ def _index_pass(
     changed_paths: set[str] = set()
     unchanged_paths: set[str] = set()
 
-    if full:
+    if full or config_changed:
+        # A config fingerprint change invalidates parse/chunk-affecting
+        # settings, so every common path must be reprocessed (safe full
+        # reparse) even when the source files are untouched.
         changed_paths = common_paths
     else:
+        stored_sigs = {s.normalized_path: s for s in kernel.list_document_signatures()}
         for np in common_paths:
             discovered = current_paths[np]
-            stored = kernel.get_document(np)
-            if stored is None:
+            sig = stored_sigs.get(np)
+            if sig is None:
                 changed_paths.add(np)
                 continue
             # Fast-path: check mtime and size
-            if stored.mtime_ns != discovered.mtime_ns or stored.size_bytes != discovered.size_bytes:
+            if sig.mtime_ns != discovered.mtime_ns or sig.size_bytes != discovered.size_bytes:
                 changed_paths.add(np)
             else:
                 unchanged_paths.add(np)
@@ -290,11 +299,11 @@ def _index_pass(
     # previously-unresolved links in unchanged documents.
     all_current_docs = kernel._db.list_documents()
     all_current_doc_ids = {c.document_id for c in all_current_docs}
-    all_links_for_resolution: list[tuple[str, list[IndexedLink]]] = []
-    for c in all_current_docs:
-        doc = kernel.get_document(c.normalized_path)
-        if doc is not None and doc.wikilinks:
-            all_links_for_resolution.append((c.document_id, doc.wikilinks))
+    # Read persisted links directly from the links table instead of
+    # reassembling every full document: the links table already carries the
+    # raw targets (and previous resolution state) for every current document,
+    # and re-resolution only needs the raw fields (MED-5).
+    all_links_for_resolution = kernel.list_document_links()
 
     resolved_links = resolve_links(
         kernel, all_links_for_resolution, all_document_ids=all_current_doc_ids

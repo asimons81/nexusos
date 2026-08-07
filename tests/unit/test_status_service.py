@@ -65,3 +65,24 @@ def test_status_detects_content_only_edit(tmp_path: Path, monkeypatch: pytest.Mo
 
     assert status["stale"] is True
     assert "source files changed" in status["stale_reasons"]
+
+
+def test_status_stale_on_config_fingerprint_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Regression (audit MED-4): a chunk/parse-affecting config edit must not
+    # report "ready". The stored config fingerprint differs until the next
+    # index pass re-stores it, so status must be stale and must surface the
+    # fingerprint reason (previously the config-only corner was special-cased
+    # to "ready", giving the user no signal that derived state is stale).
+    ws = _indexed_workspace(tmp_path, monkeypatch)
+
+    # Change a chunk-affecting config value without touching any source file.
+    toml_path = ws / "nexusos.toml"
+    toml_path.write_text("[indexing]\nchunk_max_chars = 9999\n")
+
+    status = get_status(ws)
+
+    assert status["status"] == "stale"
+    assert status["stale"] is True
+    assert "config fingerprint changed" in status["stale_reasons"]

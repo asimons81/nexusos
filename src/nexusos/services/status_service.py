@@ -154,11 +154,11 @@ def get_status(workspace_root: Path) -> dict[str, Any]:
 
         status = "ready"
         if stale_reasons:
-            # Check if it's just config fingerprint (benign change)
-            if stale_reasons == ["config fingerprint changed"] and last_successful:
-                status = "ready" if current_norm == existing_norm else "stale"
-            else:
-                status = "stale"
+            # A config fingerprint change is not benign: chunk/parse-affecting
+            # settings change derived state, which only a re-index (incremental
+            # or full) refreshes. Report stale until the stored fingerprint
+            # matches (MED-4).
+            status = "stale"
 
         if "database error" in " ".join(stale_reasons):
             status = "error"
