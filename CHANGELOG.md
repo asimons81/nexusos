@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.1.0 (2026-08-06)
+
+First stable release. Promotes the frozen RC contract after mass-readiness,
+cross-platform, package, MCP, upgrade, and security verification.
 
 ### Fixed
 

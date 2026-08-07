@@ -37,7 +37,7 @@ def _server() -> Any:
 def test_build_server_registers_expected_tools() -> None:
     server = _server()
     assert server.name == "nexusos"
-    assert server.version == "0.1.0-rc.1"
+    assert server.version == "0.1.0"
     tools = asyncio.run(server.list_tools())
     names = {t.name for t in tools}
     assert names == set(EXPECTED_TOOLS)

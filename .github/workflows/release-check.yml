@@ -106,7 +106,7 @@ jobs:
                       info = await session.initialize()
                       listed = await session.list_tools()
                       names = {t.name for t in listed.tools}
-                      assert info.server_info.version == "0.1.0-rc.1", info.server_info
+                      assert info.server_info.version == "0.1.0", info.server_info
                       assert {"browse", "context", "index", "links", "read",
                               "recent", "search", "status"} <= names, names
                       result = await session.call_tool("status", {})

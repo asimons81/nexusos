@@ -25,7 +25,7 @@ runner = CliRunner()
 def test_version_output_unchanged() -> None:
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
-    assert result.output.strip() == "nexusos 0.1.0-rc.1"
+    assert result.output.strip() == "nexusos 0.1.0"
 
 
 def test_bare_nexusos_prints_help() -> None:

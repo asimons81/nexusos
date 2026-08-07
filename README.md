@@ -8,8 +8,8 @@
 
 <p align="center">
   <a href="https://github.com/asimons81/nexusos/actions/workflows/ci.yml"><img src="https://github.com/asimons81/nexusos/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
-  <img src="https://img.shields.io/badge/version-0.1.0--rc.1-blue?style=flat-square" alt="Version 0.1.0-rc.1"/>
-  <img src="https://img.shields.io/badge/status-release--candidate-yellow?style=flat-square" alt="Status: release candidate"/>
+  <img src="https://img.shields.io/badge/version-0.1.0-blue?style=flat-square" alt="Version 0.1.0"/>
+  <img src="https://img.shields.io/badge/status-stable-brightgreen?style=flat-square" alt="Status: stable"/>
   <img src="https://img.shields.io/badge/python-3.11%2B-blue?style=flat-square" alt="Python 3.11+"/>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="License: Apache-2.0"/></a>
   <a href="https://x.com/tonysimons_"><img src="https://img.shields.io/badge/X-%40tonysimons_-000000?style=flat-square&logo=x&logoColor=white" alt="X: @tonysimons_"/></a>
@@ -26,9 +26,9 @@ inside `.nexusos/`, then gives humans and agents deterministic tools to search, 
 read, inspect links, assemble context, and verify workspace health.
 
 > [!IMPORTANT]
-> NexusOS is **release-candidate software** at `v0.1.0-rc.1`. The planned v0.1 core feature
-> scope is implemented; release hardening, packaging validation, cross-platform
-> proof, security review, and public contract freeze are complete. See the
+> NexusOS `v0.1.0` is the first stable release. The planned v0.1 core feature
+> scope, release hardening, packaging validation, cross-platform proof,
+> security review, and public contract freeze are complete. See the
 > [release roadmap](ROADMAP.md).
 
 ## Why NexusOS
@@ -48,7 +48,7 @@ NexusOS is built around a smaller contract:
 
 ## What works today
 
-`v0.1.0-rc.1` includes:
+`v0.1.0` includes:
 
 - safe workspace initialization with blank and starter templates
 - path boundaries, deny paths, nested-workspace protection, and doctor checks
@@ -252,7 +252,7 @@ nexusos config show --json
 ```
 
 See [docs/configuration.md](docs/configuration.md) for valid keys, defaults, environment
-variable names, and alpha limitations.
+variable names, and current limitations.
 
 ## Development
 
@@ -311,10 +311,9 @@ Roadmap work should reference a task ID such as `A3-04` or `RC-03`. Agents must:
 
 ## Release status
 
-The repository has shipped `v0.1.0-alpha.3` and is validating the `v0.1.0-rc.1`
-release candidate. The full-suite platform matrix and a measured coverage policy are in
-place. Stable release remains blocked on release-candidate validation, PyPI
-publication (maintainer-only), and the stable signed tag.
+The repository has completed the alpha and release-candidate train and is shipping
+`v0.1.0` as the first stable release. The full-suite platform matrix, measured
+coverage policy, signed-tag gate, and package verification are in place.
 
 Follow progress in [ROADMAP.md](ROADMAP.md).
 

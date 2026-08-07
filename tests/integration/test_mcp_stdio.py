@@ -109,7 +109,7 @@ def test_mcp_handshake_succeeds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     ws = _make_indexed_workspace(tmp_path, monkeypatch)
     info, tools = asyncio.run(_run_handshake(ws))
     assert info.server_info.name == "nexusos"
-    assert info.server_info.version == "0.1.0-rc.1"
+    assert info.server_info.version == "0.1.0"
     names = [t.name for t in tools.tools]
     assert names == ["status", "search", "browse", "read", "recent", "links", "context", "index"]
 

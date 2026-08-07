@@ -22,7 +22,7 @@
 
 ## 1. Release identity
 
-| Field | `v0.1.0-alpha.3` (shipped) | `v0.1.0-rc.1` (next) | `v0.1.0` (target) |
+| Field | `v0.1.0-alpha.3` (shipped) | `v0.1.0-rc.1` (shipped) | `v0.1.0` (stable) |
 |---|---|---|---|
 | `pyproject.toml` version | `0.1.0a3` | `0.1.0rc1` | `0.1.0` |
 | Runtime / docs version | `0.1.0-alpha.3` | `0.1.0-rc.1` | `0.1.0` |
