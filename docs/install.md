@@ -21,15 +21,19 @@ the verified release artifacts.
 |---|---|
 | Linux (Arch, KDE desktop) | **Verified** — clean-install smoke, full test gate (435 passed, 1 skipped), artifact checksums |
 | Linux (QEMU guest, clean machine) | **Verified** — clean-environment install/upgrade path used for release validation |
-| macOS | CI-tested (unit + security suites on 3.11/3.12/3.13); clean-install validation pending at RC-02 |
-| Windows | CI-tested (unit + security suites on 3.11/3.12/3.13); clean-install validation pending at RC-02 |
+| Linux (GitHub Actions) | **Verified** — clean-install release smoke on Python 3.11; full suite on 3.11/3.12/3.13 |
+| macOS | **Verified** — clean-install release smoke on Python 3.11; full suite on 3.11/3.12/3.13 |
+| Windows | **Verified** — clean-install release smoke on Python 3.11; full suite on 3.11/3.12/3.13 |
 | Python | 3.11 / 3.12 / 3.13 (`requires-python >=3.11`) |
 
-The verified release artifacts were built and smoke-tested on a Linux host
+The stable `v0.1.0` release gate built the package and completed clean-install
+smoke sequences on Linux, macOS, and Windows with Python 3.11. The repository
+CI additionally runs the full test suite on Linux, macOS, and Windows across
+Python 3.11, 3.12, and 3.13.
+
+The verified release artifacts were also built and smoke-tested on a Linux host
 (Arch, GEEKOM A9 Max) with Python 3.11 (wheel) and Python 3.12 (sdist), plus
-a clean Linux/QEMU environment for the documented install path. macOS and
-Windows clean-install validation is tracked by the A3-02 matrix and RC-02
-roadmap tasks.
+a clean Linux/QEMU environment for the documented install and upgrade path.
 
 NexusOS targets **local, single-user workspaces**. Core workflows need no
 network access. See [SECURITY.md](../SECURITY.md) for the supported deployment
@@ -59,17 +63,31 @@ Development-only:
 
 ## Install NexusOS
 
-NexusOS is not yet published to PyPI (tracked by RC-01). Install from a source
-checkout or from the verified release artifacts.
+NexusOS `v0.1.0` is published on PyPI. For most users, install the stable
+package directly from the public index.
 
-### Option A — source checkout (recommended for alpha users)
+### Option A — PyPI (recommended)
+
+```bash
+pip install nexusos
+
+nexusos version                  # => nexusos 0.1.0
+```
+
+If you use `uv`:
+
+```bash
+uv pip install nexusos
+```
+
+### Option B — source checkout (development)
 
 ```bash
 git clone https://github.com/asimons81/nexusos.git
 cd nexusos
 uv sync
 
-uv run nexusos version        # => nexusos 0.1.0
+uv run nexusos version           # => nexusos 0.1.0
 ```
 
 `uv run` uses the project virtualenv. If you prefer a global install from the
@@ -79,10 +97,12 @@ checkout:
 uv pip install --system .
 ```
 
-### Option B — verified wheel artifact
+### Option C — verified GitHub release artifacts
 
-Download `nexusos-0.1.0-py3-none-any.whl` from the release artifacts (or
-build it per [docs/releasing.md](releasing.md)), then:
+Download `nexusos-0.1.0-py3-none-any.whl` or `nexusos-0.1.0.tar.gz` from the
+`v0.1.0` GitHub release (or build them per [docs/releasing.md](releasing.md)).
+
+Wheel:
 
 ```bash
 python3 -m venv .venv
@@ -92,11 +112,11 @@ pip install nexusos-0.1.0-py3-none-any.whl
 nexusos version                  # => nexusos 0.1.0
 ```
 
-### Option C — verified sdist artifact
+Source distribution:
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install nexusos-0.1.0.tar.gz
 
 nexusos version                  # => nexusos 0.1.0
@@ -115,14 +135,15 @@ nexusos status --workspace ./my-workspace
 nexusos search "your term" --workspace ./my-workspace
 ```
 
-All commands above were verified against the `0.1.0` wheel and sdist in
-clean environments (see [docs/release/v0.1.0-manifest.md](release/v0.1.0-manifest.md)).
+The stable release gate verifies the install and smoke sequence on Linux,
+macOS, and Windows. The release artifacts and public-index installation are
+recorded in [docs/release/v0.1.0-manifest.md](release/v0.1.0-manifest.md).
 
 ## Upgrade
 
-### From an earlier alpha (alpha.1 → alpha.2 / current)
+### From an earlier alpha or release candidate to v0.1.0
 
-1. Install the new version using one of the options above.
+1. Install the stable version using one of the options above.
 2. Run `nexusos index` once on each existing workspace. This applies the
    schema v1 → v2 migration and picks up warning-detail persistence.
 
