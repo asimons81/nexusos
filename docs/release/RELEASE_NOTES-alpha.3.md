@@ -2,7 +2,7 @@
 
 **Release:** `v0.1.0-alpha.3` (PEP 440: `0.1.0a3`) · **Status:** pre-release
 **Commit:** `ed46376631b0b2b75eb0f648aafec2e4c1180e30`
-**Source:** [CHANGELOG.md](CHANGELOG.md) · [Install guide](docs/install.md) · [Artifact manifest](docs/release/v0.1.0-manifest.md)
+**Source:** [CHANGELOG.md](../../CHANGELOG.md) · [Install guide](../install.md) · [Artifact manifest](v0.1.0-manifest.md)
 
 NexusOS is a local-first, read-only knowledge operating system for AI agents.
 This is the **hardening and release-infrastructure** prerelease on the road to
@@ -87,7 +87,7 @@ Clean-install verified from both artifacts (fresh venvs, no source checkout):
   non-loopback binds are refused unless the operator explicitly overrides
   (`--allow-non-loopback` / `NEXUSOS_ALLOW_NON_LOOPBACK=1`). Do not expose it
   to an untrusted network without an external security layer.
-- Vulnerability reports: [private advisory flow](SECURITY.md).
+- Vulnerability reports: [private advisory flow](../../SECURITY.md).
 
 ## Known limitations
 
@@ -107,4 +107,4 @@ Clean-install verified from both artifacts (fresh venvs, no source checkout):
 
 ## Changelog
 
-Full changelog: [CHANGELOG.md](CHANGELOG.md)
+Full changelog: [CHANGELOG.md](../../CHANGELOG.md)

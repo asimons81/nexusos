@@ -58,10 +58,17 @@ include = [
     "docs/",
     "examples/",
 ]
+exclude = [
+    # This ledger records the sdist's own checksum. Embedding it creates an
+    # impossible self-reference: updating the checksum changes the archive.
+    # Ship checksums beside release assets instead.
+    "docs/release/v0.1.0-manifest.md",
+]
 
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+extend-exclude = [".worktrees"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "C4", "RUF", "TCH", "PT"]

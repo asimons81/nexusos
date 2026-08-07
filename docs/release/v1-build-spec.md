@@ -70,8 +70,10 @@ and the `python-package-release` skill §4):
   correct `Version` / `License` / `Requires-Python` metadata. No `.db`,
   `__pycache__`, `.sqlite`, `.pyc`, `.env`, or absolute paths.
 - **Sdist:** `src/nexusos/**`, `src/nexusos/ui/**`, README, LICENSE, CHANGELOG,
-  ROADMAP, SECURITY, CONTRIBUTING, AGENTS, `docs/`, `examples/` (declared in
-  `pyproject.toml` `[tool.hatch.build.targets.sdist]`).
+  ROADMAP, SECURITY, CONTRIBUTING, AGENTS, maintained `docs/`, and `examples/`
+  (declared in `pyproject.toml` `[tool.hatch.build.targets.sdist]`). The mutable
+  artifact ledger `docs/release/v0.1.0-manifest.md` is intentionally excluded:
+  an archive cannot embed its own final checksum without changing that checksum.
 - **Checksums:** SHA-256 recorded in `docs/release/v0.1.0-manifest.md` and a
   `SHA256SUMS` file attached to the GitHub release. Archive hashes are **not**
   reproducible across builds (metadata timestamps); record the authoritative

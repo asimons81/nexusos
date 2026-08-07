@@ -2,7 +2,7 @@
 
 > Status: maintained by roadmap task **A3-07** (adversarial security release
 > review, `v0.1.0-alpha.3`). The supported deployment boundary and the
-> vulnerability reporting path live in [SECURITY.md](../../SECURITY.md); this
+> vulnerability reporting path live in [SECURITY.md](../SECURITY.md); this
 > document is the threat model, the defense-in-depth inventory, and the
 > per-review-area evidence record. When implementation, tests, or docs
 > disagree, correct the contract deliberately across every affected document
@@ -37,7 +37,7 @@ The HTTP surfaces are developer/inspection tooling, not internet services:
 Neither surface is a complete internet-facing security layer. Exposing either
 to an untrusted network requires an external security layer appropriate to the
 deployment (reverse proxy, TLS, authentication, network policy). See
-[SECURITY.md](../../SECURITY.md) for the full boundary statement and out-of-scope
+[SECURITY.md](../SECURITY.md) for the full boundary statement and out-of-scope
 controls.
 
 ## 2. Threat model
