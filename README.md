@@ -46,6 +46,22 @@ NexusOS is built around a smaller contract:
 - **Read-only by default:** retrieval never edits source documents.
 - **Rebuildable state:** the index can be deleted and regenerated from source files.
 
+## Where NexusOS fits
+
+NexusOS is not designed as a self-evolving agent-memory system. It is a source-grounded
+knowledge substrate: your files remain canonical while NexusOS builds deterministic,
+rebuildable retrieval state around them.
+
+<p align="center">
+  <img src="assets/nexusos-agent-memory-landscape.svg" alt="Where NexusOS fits in the agent memory landscape" width="100%"/>
+</p>
+
+> This is qualitative architectural positioning, not a benchmark or ranking.
+
+The key distinction is authority: NexusOS protects and exposes canonical knowledge,
+while evolving memory systems may create, update, consolidate, or rewrite memory
+representations over time.
+
 ## What works today
 
 `v0.1.0` includes:
