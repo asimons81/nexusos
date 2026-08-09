@@ -53,7 +53,13 @@ knowledge substrate: your files remain canonical while NexusOS builds determinis
 rebuildable retrieval state around them.
 
 <p align="center">
-  <img src="assets/nexusos-agent-memory-landscape.svg" alt="Where NexusOS fits in the agent memory landscape" width="100%"/>
+  <a href="docs/agent-memory-landscape.md">
+    <img src="assets/nexusos-agent-memory-landscape.svg" alt="Where NexusOS fits in the agent memory landscape" width="100%"/>
+  </a>
+</p>
+
+<p align="center">
+  <a href="docs/agent-memory-landscape.md"><strong>Read the technical research behind this mapping →</strong></a>
 </p>
 
 > This is qualitative architectural positioning, not a benchmark or ranking.
@@ -323,6 +329,7 @@ Roadmap work should reference a task ID such as `A3-04` or `RC-03`. Agents must:
 | [docs/install.md](docs/install.md) | Supported environments, dependencies, install/upgrade, verified artifacts |
 | [docs/releases/v0.1.md](docs/releases/v0.1.md) | v0.1 release notes (features, fixes, known issues, verification) |
 | [docs/architecture.md](docs/architecture.md) | Layers, dependencies, and invariants |
+| [docs/agent-memory-landscape.md](docs/agent-memory-landscape.md) | Research-backed positioning in the agent memory landscape |
 | [docs/contracts.md](docs/contracts.md) | Frozen CLI, config, JSON, exit-code, and MCP contracts |
 | [docs/configuration.md](docs/configuration.md) | TOML schema, environment variables, precedence |
 | [docs/mcp.md](docs/mcp.md) | MCP tools, transports, and client setup |
