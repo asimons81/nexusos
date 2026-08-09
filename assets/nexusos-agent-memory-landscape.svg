@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Where NexusOS Fits in the Agent Memory Landscape</title>
+  <desc id="desc">An ordinal architectural diagram. NexusOS v0.1 sits at low autonomous memory transformation and low canonical-memory writes, while Mem0, Honcho, Letta, A-Mem, and GBrain occupy the higher-transformation, higher-write region. The diagram is not a benchmark or ranking.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#030711"/>
+      <stop offset="0.55" stop-color="#071324"/>
+      <stop offset="1" stop-color="#02060d"/>
+    </linearGradient>
+    <linearGradient id="nexus" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a2d73"/>
+      <stop offset="0.5" stop-color="#0b5fff"/>
+      <stop offset="1" stop-color="#071a42"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style>
+      .title { font: 700 54px system-ui, -apple-system, Segoe UI, sans-serif; letter-spacing: 1.5px; fill: #f5f8ff; }
+      .blue { fill: #2d72ff; }
+      .sub { font: 400 23px system-ui, -apple-system, Segoe UI, sans-serif; fill: #b9c5d8; }
+      .axis { font: 650 20px system-ui, -apple-system, Segoe UI, sans-serif; letter-spacing: 1.3px; fill: #dce6f6; }
+      .axisSmall { font: 500 17px system-ui, -apple-system, Segoe UI, sans-serif; fill: #7790b3; }
+      .sys { font: 700 24px system-ui, -apple-system, Segoe UI, sans-serif; fill: #f5f8ff; }
+      .nexusText { font: 750 30px system-ui, -apple-system, Segoe UI, sans-serif; fill: #ffffff; }
+      .call { font: 500 19px system-ui, -apple-system, Segoe UI, sans-serif; fill: #dbe6f8; }
+      .small { font: 500 17px system-ui, -apple-system, Segoe UI, sans-serif; fill: #9eb0ca; }
+      .foot { font: 600 16px system-ui, -apple-system, Segoe UI, sans-serif; letter-spacing: 2px; fill: #6e8dbb; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect x="18" y="18" width="1564" height="864" rx="18" fill="none" stroke="#17345f" stroke-width="2"/>
+  <path d="M18 75V18h58 M1524 18h58v57 M18 825v57h58 M1524 882h58v-57" fill="none" stroke="#2a6fff" stroke-width="3"/>
+
+  <text x="800" y="82" text-anchor="middle" class="title">WHERE <tspan class="blue">NEXUSOS</tspan> FITS</text>
+  <text x="800" y="143" text-anchor="middle" class="title">IN THE AGENT MEMORY LANDSCAPE</text>
+  <text x="800" y="182" text-anchor="middle" class="sub">Memory evolution and canonical-state authority are different design choices.</text>
+
+  <!-- Plot area -->
+  <g>
+    <rect x="245" y="215" width="1230" height="470" fill="#04101f" fill-opacity="0.55" stroke="#17345f"/>
+    <g stroke="#17345f" stroke-width="1" stroke-dasharray="3 7" opacity="0.9">
+      <line x1="245" y1="310" x2="1475" y2="310"/><line x1="245" y1="405" x2="1475" y2="405"/>
+      <line x1="245" y1="500" x2="1475" y2="500"/><line x1="245" y1="595" x2="1475" y2="595"/>
+      <line x1="450" y1="215" x2="450" y2="685"/><line x1="655" y1="215" x2="655" y2="685"/>
+      <line x1="860" y1="215" x2="860" y2="685"/><line x1="1065" y1="215" x2="1065" y2="685"/>
+      <line x1="1270" y1="215" x2="1270" y2="685"/>
+    </g>
+    <line x1="245" y1="685" x2="1510" y2="685" stroke="#e8eef8" stroke-width="3"/>
+    <path d="M1510 685l-18 -10v20z" fill="#e8eef8"/>
+    <line x1="245" y1="685" x2="245" y2="195" stroke="#e8eef8" stroke-width="3"/>
+    <path d="M245 195l-10 18h20z" fill="#e8eef8"/>
+  </g>
+
+  <!-- Axis labels -->
+  <text x="92" y="362" class="axis">MORE</text>
+  <text x="92" y="394" class="axis">AUTONOMOUS</text>
+  <text x="92" y="426" class="axis">MEMORY</text>
+  <text x="92" y="458" class="axis">TRANSFORMATION</text>
+  <text x="215" y="235" text-anchor="end" class="blue" style="font:650 19px system-ui">HIGH</text>
+  <text x="215" y="682" text-anchor="end" class="blue" style="font:650 19px system-ui">LOW</text>
+
+  <text x="860" y="725" text-anchor="middle" class="axis">MORE CANONICAL-MEMORY WRITES →</text>
+  <text x="245" y="755" class="axisSmall">HUMAN / EXTERNAL</text>
+  <text x="245" y="780" class="axisSmall">CANONICAL SOURCE</text>
+  <text x="1330" y="755" class="axisSmall">SYSTEM / AGENT</text>
+  <text x="1330" y="780" class="axisSmall">MEMORY WRITES</text>
+
+  <!-- NexusOS -->
+  <g filter="url(#glow)">
+    <rect x="275" y="555" width="255" height="85" rx="14" fill="url(#nexus)" stroke="#55a0ff" stroke-width="3"/>
+    <circle cx="275" cy="640" r="7" fill="#0b5fff" stroke="#ffffff" stroke-width="2"/>
+  </g>
+  <text x="402" y="607" text-anchor="middle" class="nexusText">NexusOS v0.1</text>
+
+  <g>
+    <path d="M530 598L568 586" stroke="#2d72ff" stroke-width="2"/>
+    <rect x="568" y="535" width="260" height="120" rx="12" fill="#06162c" stroke="#2d72ff"/>
+    <text x="590" y="565" class="call">✓ Human-owned source</text>
+    <text x="590" y="594" class="call">✓ Deterministic retrieval</text>
+    <text x="590" y="623" class="call">✓ Rebuildable index</text>
+    <text x="590" y="652" class="call">✓ Traceable evidence</text>
+  </g>
+
+  <!-- Evolving-memory systems -->
+  <g>
+    <rect x="955" y="435" width="132" height="50" rx="10" fill="#0a1321" stroke="#7e93b5"/>
+    <text x="1021" y="468" text-anchor="middle" class="sys">Mem0</text>
+
+    <rect x="1045" y="375" width="142" height="50" rx="10" fill="#0a1321" stroke="#7e93b5"/>
+    <text x="1116" y="408" text-anchor="middle" class="sys">Honcho</text>
+
+    <rect x="1140" y="315" width="132" height="50" rx="10" fill="#0a1321" stroke="#7e93b5"/>
+    <text x="1206" y="348" text-anchor="middle" class="sys">Letta</text>
+
+    <rect x="1240" y="260" width="142" height="50" rx="10" fill="#0a1321" stroke="#7e93b5"/>
+    <text x="1311" y="293" text-anchor="middle" class="sys">A-Mem</text>
+
+    <rect x="1350" y="220" width="132" height="50" rx="10" fill="#0a1321" stroke="#aab9cf"/>
+    <text x="1416" y="253" text-anchor="middle" class="sys">GBrain</text>
+  </g>
+
+  <!-- Omission note -->
+  <g>
+    <rect x="1185" y="530" width="280" height="110" rx="12" fill="#07121f" stroke="#51647e"/>
+    <circle cx="1212" cy="558" r="12" fill="none" stroke="#2d72ff" stroke-width="2"/>
+    <text x="1212" y="565" text-anchor="middle" style="font:700 18px system-ui; fill:#2d72ff">i</text>
+    <text x="1238" y="563" class="small">GraphRAG omitted:</text>
+    <text x="1238" y="589" class="small">transformation behavior is clear;</text>
+    <text x="1238" y="615" class="small">canonical-source mutation boundary is not.</text>
+  </g>
+
+  <!-- Bottom explanatory strip -->
+  <line x1="55" y1="806" x2="1545" y2="806" stroke="#24364f"/>
+  <text x="95" y="838" style="font:700 18px system-ui; fill:#2d72ff">NEXUSOS APPROACH</text>
+  <text x="95" y="867" class="small">Protects and exposes canonical knowledge. Authority remains with the human.</text>
+
+  <text x="845" y="838" style="font:700 18px system-ui; fill:#2d72ff">EVOLVING MEMORY APPROACHES</text>
+  <text x="845" y="867" class="small">Create, update, consolidate, or evolve memory representations over time.</text>
+
+  <text x="800" y="895" text-anchor="middle" class="foot">ORDINAL ARCHITECTURAL POSITIONING · NOT BENCHMARK SCORES</text>
+</svg>
