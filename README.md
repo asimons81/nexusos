@@ -1,3 +1,5 @@
+
+
 <p align="center">
   <img src="assets/nexusos-branding.png" alt="NexusOS: run your second brain" width="85%"/>
 </p>
@@ -94,7 +96,7 @@ Install the stable release from PyPI (full instructions: [docs/install.md](docs/
 pip install nexusos
 
 nexusos version
-nexusos init ./example-workspace
+nexusos init --template starter ./example-workspace
 nexusos doctor --workspace ./example-workspace
 nexusos index --workspace ./example-workspace
 nexusos status --workspace ./example-workspace
