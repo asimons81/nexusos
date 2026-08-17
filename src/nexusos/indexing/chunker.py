@@ -201,25 +201,16 @@ def _split_section(
                 current_text = para_text
                 current_start = p_start
 
-        # If current paragraph is still too big, split at line boundaries
-        while len(current_text) > chunk_max_chars and current_text != current_text.split("\n")[0]:
-            para_lines = current_text.split("\n")
-            # Find split point
-            split_at = 0
-            acc = 0
-            for j, pline in enumerate(para_lines):
-                if acc + len(pline) > chunk_max_chars and j > 0:
-                    split_at = j
-                    break
-                acc += len(pline) + 1  # +1 for newline
-
-            if split_at == 0:
-                split_at = len(para_lines)
-
-            chunk_lines = para_lines[:split_at]
-            chunk_text = "\n".join(chunk_lines).strip()
-            chunk_end_line = current_start + len(chunk_lines) - 1
-
+        # If current paragraph is still too big, split at line boundaries,
+        # falling back to hard character splits so a single oversized line
+        # (at any position) always makes strict forward progress.
+        while len(current_text) > chunk_max_chars:
+            chunk_text, current_text, consumed_lines = _split_long_text(
+                current_text, chunk_max_chars, chunk_overlap_chars
+            )
+            if not chunk_text:
+                break
+            chunk_end_line = current_start + consumed_lines - 1
             candidates.append(
                 ChunkCandidate(
                     ordinal=len(candidates) + 1,
@@ -230,16 +221,7 @@ def _split_section(
                     content_sha256=_sha256(chunk_text),
                 )
             )
-
-            # Overlap: keep the last few lines as context for next chunk
-            if split_at < len(para_lines):
-                overlap_start = max(0, split_at - _overlap_lines(chunk_lines, chunk_overlap_chars))
-                remaining = para_lines[overlap_start:]
-                current_text = "\n".join(remaining)
-                current_start = current_start + overlap_start
-            else:
-                current_text = ""
-                current_start = 0
+            current_start = current_start + consumed_lines
 
     # Flush final chunk
     if current_text.strip():
@@ -259,16 +241,56 @@ def _split_section(
     return candidates
 
 
-def _overlap_lines(lines: list[str], max_chars: int) -> int:
-    """Return how many lines from the end to keep for overlap."""
-    total = 0
-    count = 0
-    for line in reversed(lines):
-        if total + len(line) > max_chars:
-            break
-        total += len(line) + 1
-        count += 1
-    return count
+def _split_long_text(
+    text: str,
+    chunk_max_chars: int,
+    chunk_overlap_chars: int,
+) -> tuple[str, str, int]:
+    """Split the front of ``text`` into one bounded chunk, guaranteeing progress.
+
+    Returns ``(chunk_text, remaining_text, consumed_lines)`` where the chunk is
+    the longest line-bounded prefix that fits within ``chunk_max_chars``. When
+    even the first line is too long, falls back to a hard character split of
+    that line (with a trailing overlap window) so a single oversized line never
+    stalls the caller. ``consumed_lines`` counts lines fully consumed from the
+    front, used to advance the source line cursor.
+    """
+    lines = text.split("\n")
+    # Remove a trailing empty line produced by a trailing newline so line
+    # accounting matches the source cursor.
+    if lines and lines[-1] == "":
+        lines.pop()
+
+    if not lines:
+        return "", "", 0
+
+    if len(lines[0]) <= chunk_max_chars:
+        # Longest line-bounded prefix that fits.
+        acc = 0
+        split_at = 0
+        for j, pline in enumerate(lines):
+            if acc + len(pline) + 1 > chunk_max_chars:
+                break
+            acc += len(pline) + 1
+            split_at = j + 1
+        split_at = max(1, split_at)
+        chunk_lines = lines[:split_at]
+        chunk_text = "\n".join(chunk_lines).strip()
+        remaining = "\n".join(lines[split_at:])
+        return chunk_text, remaining, split_at
+
+    # First line is oversized: hard character split with a trailing overlap
+    # window, clamped so at least one character is always consumed.
+    first = lines[0]
+    chunk_text = first[:chunk_max_chars]
+    if chunk_overlap_chars >= chunk_max_chars:
+        overlap_start = chunk_max_chars  # no room for overlap
+    else:
+        overlap_start = chunk_max_chars - chunk_overlap_chars
+    remaining = first[overlap_start:]
+    if len(lines) > 1:
+        remaining = remaining + "\n" + "\n".join(lines[1:])
+    return chunk_text, remaining, 1
 
 
 def _chunk_plaintext(
