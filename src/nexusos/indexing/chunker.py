@@ -205,12 +205,12 @@ def _split_section(
         # falling back to hard character splits so a single oversized line
         # (at any position) always makes strict forward progress.
         while len(current_text) > chunk_max_chars:
-            chunk_text, current_text, consumed_lines = _split_long_text(
+            chunk_text, current_text, chunk_line_count, lines_advanced = _split_long_text(
                 current_text, chunk_max_chars, chunk_overlap_chars
             )
             if not chunk_text:
                 break
-            chunk_end_line = current_start + consumed_lines - 1
+            chunk_end_line = current_start + chunk_line_count - 1
             candidates.append(
                 ChunkCandidate(
                     ordinal=len(candidates) + 1,
@@ -221,7 +221,7 @@ def _split_section(
                     content_sha256=_sha256(chunk_text),
                 )
             )
-            current_start = current_start + consumed_lines
+            current_start = current_start + lines_advanced
 
     # Flush final chunk
     if current_text.strip():
@@ -245,15 +245,14 @@ def _split_long_text(
     text: str,
     chunk_max_chars: int,
     chunk_overlap_chars: int,
-) -> tuple[str, str, int]:
+) -> tuple[str, str, int, int]:
     """Split the front of ``text`` into one bounded chunk, guaranteeing progress.
 
-    Returns ``(chunk_text, remaining_text, consumed_lines)`` where the chunk is
-    the longest line-bounded prefix that fits within ``chunk_max_chars``. When
-    even the first line is too long, falls back to a hard character split of
-    that line (with a trailing overlap window) so a single oversized line never
-    stalls the caller. ``consumed_lines`` counts lines fully consumed from the
-    front, used to advance the source line cursor.
+    Returns ``(chunk_text, remaining_text, chunk_line_count, lines_advanced)``.
+    ``chunk_line_count`` is the number of physical source lines represented by
+    the emitted chunk. ``lines_advanced`` is how far the source-line cursor may
+    move before the next chunk. These values differ when line overlap is kept or
+    when a single oversized source line is hard-split into multiple chunks.
     """
     lines = text.split("\n")
     # Remove a trailing empty line produced by a trailing newline so line
@@ -262,25 +261,40 @@ def _split_long_text(
         lines.pop()
 
     if not lines:
-        return "", "", 0
+        return "", "", 0, 0
 
     if len(lines[0]) <= chunk_max_chars:
-        # Longest line-bounded prefix that fits.
+        # Longest line-bounded prefix that fits exactly, including separators.
         acc = 0
         split_at = 0
         for j, pline in enumerate(lines):
-            if acc + len(pline) + 1 > chunk_max_chars:
+            candidate_len = acc + (1 if split_at else 0) + len(pline)
+            if candidate_len > chunk_max_chars:
                 break
-            acc += len(pline) + 1
+            acc = candidate_len
             split_at = j + 1
         split_at = max(1, split_at)
         chunk_lines = lines[:split_at]
         chunk_text = "\n".join(chunk_lines).strip()
-        remaining = "\n".join(lines[split_at:])
-        return chunk_text, remaining, split_at
+
+        # Preserve whole trailing lines as overlap, but never retain the entire
+        # emitted prefix: at least one physical source line must be consumed.
+        overlap_lines = 0
+        overlap_chars = 0
+        for line in reversed(chunk_lines):
+            added = len(line) + (1 if overlap_lines else 0)
+            if overlap_chars + added > chunk_overlap_chars:
+                break
+            overlap_chars += added
+            overlap_lines += 1
+        overlap_lines = min(overlap_lines, split_at - 1)
+        lines_advanced = split_at - overlap_lines
+        remaining = "\n".join(lines[lines_advanced:])
+        return chunk_text, remaining, split_at, lines_advanced
 
     # First line is oversized: hard character split with a trailing overlap
-    # window, clamped so at least one character is always consumed.
+    # window, clamped so at least one character is always consumed. The source
+    # cursor stays on this same physical line until its remainder is exhausted.
     first = lines[0]
     chunk_text = first[:chunk_max_chars]
     if chunk_overlap_chars >= chunk_max_chars:
@@ -290,7 +304,7 @@ def _split_long_text(
     remaining = first[overlap_start:]
     if len(lines) > 1:
         remaining = remaining + "\n" + "\n".join(lines[1:])
-    return chunk_text, remaining, 1
+    return chunk_text, remaining, 1, 0
 
 
 def _chunk_plaintext(
