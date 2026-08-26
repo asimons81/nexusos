@@ -1,7 +1,7 @@
 
 
 <p align="center">
-  <img src="assets/nexusos-branding.png" alt="NexusOS: run your second brain" width="85%"/>
+  <img src="assets/nexusos-architecture.webp" alt="NexusOS architecture: local-first agent kernel with persistent context, secure execution, and controlled tool access" width="85%"/>
 </p>
 
 <p align="center">
